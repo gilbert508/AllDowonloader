@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Launch using Gunicorn binding to Render's dynamic PORT variable
-CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-10000} -w 2 --timeout 300 server:app"]
+# Run gunicorn via python module flag
+CMD ["sh", "-c", "python -m gunicorn -b 0.0.0.0:${PORT:-10000} -w 1 --timeout 300 server:app"]
