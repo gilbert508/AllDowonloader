@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All Downloader | Fast & Reliable</title>
+  <title>All Downloader | Universal Media Engine</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -17,9 +17,7 @@
       darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
           colors: {
             brand: { yt: '#FF0033', fb: '#1877F2', insta: '#E1306C' },
             surface: { 900: '#07090E', 850: '#0C0F17', 800: '#121722', 700: '#1C2333', 600: '#2A3449' }
@@ -30,25 +28,11 @@
   </script>
   <style>
     body { background-color: #07090e; color: #f1f5f9; overflow-x: hidden; }
-    .glass-panel {
-      background: rgba(18, 23, 34, 0.7);
-      backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
+    .glass-panel { background: rgba(18, 23, 34, 0.7); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
     .glass-panel-hover { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-    .glass-panel-hover:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: translateY(-2px);
-      box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
-    }
-    #three-canvas-container {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      pointer-events: none; z-index: 0; opacity: 0.65;
-    }
-    .subtle-glow {
-      position: absolute; width: 600px; height: 600px; border-radius: 50%;
-      filter: blur(140px); pointer-events: none; z-index: 0; opacity: 0.15;
-    }
+    .glass-panel-hover:hover { border-color: rgba(255, 255, 255, 0.2); transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6); }
+    #three-canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; opacity: 0.65; }
+    .subtle-glow { position: absolute; width: 600px; height: 600px; border-radius: 50%; filter: blur(140px); pointer-events: none; z-index: 0; opacity: 0.15; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col relative selection:bg-rose-500/30 selection:text-rose-200">
@@ -67,32 +51,31 @@
         </div>
       </div>
       <div class="flex items-center gap-4">
-        <div id="backend-status-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-amber-500/30 bg-amber-500/10 text-amber-300">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-          <span id="backend-status-label">Checking Backend...</span>
+        <div id="status-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="status-label">Universal Network (Active)</span>
         </div>
       </div>
     </div>
   </header>
 
   <main class="relative z-10 flex-1 max-w-5xl mx-auto w-full px-6 py-10">
+    <!-- Tabs -->
     <div class="flex justify-center mb-8">
       <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1">
         <button data-platform="yt" class="platform-tab active px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2.5 bg-white/[0.08] text-white">
-          <i data-lucide="youtube" class="w-4 h-4 text-red-500"></i>
-          <span>YouTube</span>
+          <i data-lucide="youtube" class="w-4 h-4 text-red-500"></i><span>YouTube</span>
         </button>
         <button data-platform="insta" class="platform-tab px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 text-slate-400 hover:text-white">
-          <i data-lucide="instagram" class="w-4 h-4 text-pink-500"></i>
-          <span>Instagram</span>
+          <i data-lucide="instagram" class="w-4 h-4 text-pink-500"></i><span>Instagram</span>
         </button>
         <button data-platform="fb" class="platform-tab px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 text-slate-400 hover:text-white">
-          <i data-lucide="facebook" class="w-4 h-4 text-blue-500"></i>
-          <span>Facebook</span>
+          <i data-lucide="facebook" class="w-4 h-4 text-blue-500"></i><span>Facebook</span>
         </button>
       </div>
     </div>
 
+    <!-- Title Bar -->
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -106,17 +89,17 @@
       </div>
     </div>
 
-    <!-- Single Download -->
+    <!-- Single Download View -->
     <div id="view-single" class="space-y-6">
       <div class="glass-panel p-6 rounded-3xl space-y-4">
         <div class="flex flex-col md:flex-row gap-3">
           <div class="relative flex-1">
             <i data-lucide="link-2" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input id="single-url-input" type="text" placeholder="Paste link..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
+            <input id="single-url-input" type="text" placeholder="Paste YouTube link (video, shorts, reels)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
           </div>
-          <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2">
-            <i data-lucide="search" class="w-4 h-4"></i>
-            <span>Analyze Link</span>
+          <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
+            <span>Fetch Stream</span>
           </button>
         </div>
 
@@ -133,47 +116,40 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold text-slate-400">Target Quality:</span>
+            <span class="text-xs font-semibold text-slate-400">Resolution:</span>
             <select id="quality-select" class="bg-surface-850 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none">
-              <option value="highest">Auto: Highest Available (4K / 1080p)</option>
-              <option value="2160">4K Ultra HD (2160p)</option>
-              <option value="1440">2K Quad HD (1440p)</option>
-              <option value="1080">Full HD (1080p 60fps)</option>
-              <option value="720">HD (720p)</option>
+              <option value="max">Highest Available (4K / 1080p)</option>
+              <option value="1080">1080p Full HD</option>
+              <option value="720">720p HD</option>
+              <option value="480">480p SD</option>
             </select>
           </div>
         </div>
       </div>
 
+      <!-- Result Card -->
       <div id="media-card" class="glass-panel glass-panel-hover p-6 rounded-3xl hidden">
         <div class="flex flex-col md:flex-row gap-6 items-start">
           <div class="relative w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-surface-800 flex-shrink-0 border border-white/10">
             <img id="card-thumb" src="" alt="Thumbnail" class="w-full h-full object-cover">
-            <span id="card-duration" class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-bold text-white">--:--</span>
           </div>
           <div class="flex-1 space-y-3 w-full">
-            <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YouTube</span>
-            <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Media Title</h3>
-            <p id="card-uploader" class="text-xs text-slate-400">Channel</p>
+            <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YOUTUBE</span>
+            <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Stream Title</h3>
+            <p id="card-uploader" class="text-xs text-slate-400">Ready to download</p>
             <div class="pt-4 flex items-center justify-between border-t border-white/[0.06]">
-              <span id="card-format-label" class="text-xs font-bold text-white">MP4 (Highest Quality)</span>
-              <button id="download-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2">
+              <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video</span>
+              <a id="download-link" href="#" target="_blank" download class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span>Download Now</span>
-              </button>
-            </div>
-            <div id="single-progress-box" class="hidden pt-2">
-              <div class="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
-                <div id="single-progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
-              </div>
-              <p id="single-progress-text" class="text-[11px] text-slate-400 mt-1">Starting transmission...</p>
+                <span id="download-btn-text">Download Now</span>
+              </a>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Batch Download -->
+    <!-- Batch Download View -->
     <div id="view-batch" class="space-y-6 hidden">
       <div class="glass-panel p-6 rounded-3xl space-y-4">
         <textarea id="batch-urls-input" rows="5" placeholder="Paste multiple links (one per line)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl p-4 text-xs font-mono text-white focus:outline-none"></textarea>
@@ -181,18 +157,13 @@
           <span id="batch-count-label" class="text-xs text-slate-400">0 links detected</span>
           <div class="flex items-center gap-3">
             <button id="batch-start-btn" class="px-6 py-3 rounded-xl bg-white text-slate-900 font-bold text-xs flex items-center gap-2">
-              <i data-lucide="play" class="w-3.5 h-3.5"></i>
-              Start Batch Queue
-            </button>
-            <button id="batch-zip-btn" class="px-6 py-3 rounded-xl bg-surface-700 text-white font-bold text-xs flex items-center gap-2 disabled:opacity-40" disabled>
-              <i data-lucide="archive" class="w-3.5 h-3.5"></i>
-              Export All as ZIP
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Start Batch Queue
             </button>
           </div>
         </div>
       </div>
       <div id="batch-table-card" class="glass-panel p-6 rounded-3xl hidden">
-        <h3 class="text-sm font-bold text-white mb-4">Batch Queue</h3>
+        <h3 class="text-sm font-bold text-white mb-4">Resolved Download Links</h3>
         <div class="space-y-2.5" id="batch-items-container"></div>
       </div>
     </div>
@@ -201,7 +172,7 @@
   <script>
     lucide.createIcons();
 
-    // Three.js Background
+    // 3D Crystal Mesh
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -213,7 +184,6 @@
     const material = new THREE.MeshStandardMaterial({ color: 0x99a3ba, wireframe: true, roughness: 0.2, metalness: 0.8 });
     const crystal = new THREE.Mesh(geometry, material);
     scene.add(crystal);
-
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
     dirLight.position.set(10, 20, 15);
     scene.add(dirLight);
@@ -242,61 +212,55 @@
     }
     animate();
 
-    const BACKEND_URL = "";
-    let isBackendOnline = false;
-    let inspectedMedia = null;
+    // High-speed API Nodes (Failover Ring)
+    const API_INSTANCES = [
+      "https://api.cobalt.tools",
+      "https://cobalt-api.kwiatekmiki.com",
+      "https://cobalt.hyper.lol",
+      "https://api.wuk.sh"
+    ];
+
     let currentFormat = 'video';
     let currentPlatform = 'yt';
 
-    function getSafeFileName(title, ext) {
-      const safe = (title || 'media').replace(/[\\/*?:"<>|]/g, '').trim();
-      return `${safe}.${ext}`;
-    }
+    // Core universal resolver
+    async function requestMediaStream(targetUrl, isAudioOnly, quality) {
+      const payload = {
+        url: targetUrl,
+        downloadMode: isAudioOnly ? 'audio' : 'auto',
+        videoQuality: quality === 'max' ? 'max' : quality,
+        youtubeVideoCodec: 'h264'
+      };
 
-    function parseFilenameFromHeader(disposition, fallbackName) {
-      if (!disposition) return fallbackName;
-      const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-      if (utf8Match && utf8Match[1]) {
-        return decodeURIComponent(utf8Match[1]).replace(/[\\/*?:"<>|]/g, '').trim();
-      }
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
-      if (match && match[1]) {
-        return match[1].replace(/['"]/g, '').replace(/[\\/*?:"<>|]/g, '').trim();
-      }
-      return fallbackName;
-    }
-
-    // -------------------------------------------------------------
-    // Health & Heartbeat Engine
-    // -------------------------------------------------------------
-    async function sendHeartbeat() {
-      const label = document.getElementById('backend-status-label');
-      const pill = document.getElementById('backend-status-pill');
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/heartbeat`, { method: 'POST' });
-        if (res.ok) {
-          isBackendOnline = true;
-          label.textContent = 'Connected';
-          pill.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-          pill.children[0].className = 'w-2 h-2 rounded-full bg-emerald-400';
-          return;
+      for (const instance of API_INSTANCES) {
+        try {
+          const res = await fetch(instance, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.url) return { url: data.url, filename: data.filename || 'media' };
+            if (data.picker && data.picker.length > 0) return { url: data.picker[0].url, filename: 'media' };
+          }
+        } catch (err) {
+          // Try next instance in ring
+          continue;
         }
-      } catch (e) {}
-      isBackendOnline = false;
-      label.textContent = 'Disconnected';
-      pill.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-slate-500/30 bg-white/[0.04] text-slate-300';
-      pill.children[0].className = 'w-2 h-2 rounded-full bg-slate-400';
+      }
+      throw new Error("Unable to extract stream. Please check link validity.");
     }
 
-    // Send heartbeat every 3 seconds to keep backend alive
-    sendHeartbeat();
-    setInterval(sendHeartbeat, 3000);
-
-    // Platform Tab Events
+    // Platform Switching
     const platforms = {
-      yt: { title: 'YouTube Engine', badge: 'Up to 4K UHD', glow: 'bg-red-600', placeholder: 'Paste YouTube link...' },
-      insta: { title: 'Instagram Engine', badge: 'Reels & Videos', glow: 'bg-pink-600', placeholder: 'Paste Instagram Reel or Post link...' },
-      fb: { title: 'Facebook Engine', badge: 'HD Watch & Reels', glow: 'bg-blue-600', placeholder: 'Paste Facebook Video link...' },
+      yt: { title: 'YouTube Engine', badge: 'Up to 4K UHD', glow: 'bg-red-600', placeholder: 'Paste YouTube link (shorts, video)...' },
+      insta: { title: 'Instagram Engine', badge: 'Reels & Carousel', glow: 'bg-pink-600', placeholder: 'Paste Instagram Reel or Post link...' },
+      fb: { title: 'Facebook Engine', badge: 'HD Watch & Reels', glow: 'bg-blue-600', placeholder: 'Paste Facebook Video link...' }
     };
 
     document.querySelectorAll('.platform-tab').forEach(tab => {
@@ -311,7 +275,7 @@
       });
     });
 
-    // Toggle Single / Batch
+    // Single vs Batch View Switching
     document.getElementById('mode-single-btn').addEventListener('click', () => {
       document.getElementById('mode-single-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white';
       document.getElementById('mode-batch-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white';
@@ -326,7 +290,7 @@
       document.getElementById('view-single').classList.add('hidden');
     });
 
-    // Format Select
+    // Format Switching
     const formatVideoBtn = document.getElementById('format-video-btn');
     const formatAudioBtn = document.getElementById('format-audio-btn');
     const qualitySelect = document.getElementById('quality-select');
@@ -335,220 +299,91 @@
       currentFormat = 'video';
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-white flex items-center gap-1.5';
       formatAudioBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
-      qualitySelect.innerHTML = `
-        <option value="highest">Auto: Highest Available (4K / 1080p)</option>
-        <option value="2160">4K Ultra HD (2160p)</option>
-        <option value="1440">2K Quad HD (1440p)</option>
-        <option value="1080">Full HD (1080p 60fps)</option>
-        <option value="720">HD (720p)</option>
-      `;
+      qualitySelect.disabled = false;
     });
 
     formatAudioBtn.addEventListener('click', () => {
       currentFormat = 'audio';
       formatAudioBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-white flex items-center gap-1.5';
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
-      qualitySelect.innerHTML = `
-        <option value="320k">Studio 320 kbps MP3</option>
-        <option value="256k">High 256 kbps MP3</option>
-        <option value="128k">Standard 128 kbps MP3</option>
-      `;
+      qualitySelect.disabled = true;
     });
 
-    // Analyze Single
+    // Analyze & Fetch Single Link
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
-      if (!url) return alert('Enter a valid media URL');
-      inspectBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Analyzing...</span>';
+      if (!url) return alert("Please enter a valid media link.");
+
+      inspectBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Extracting...</span>';
       lucide.createIcons();
 
-      if (isBackendOnline) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/info`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            inspectedMedia = {
-              title: data.title,
-              uploader: data.uploader,
-              duration: data.duration ? `${Math.floor(data.duration/60)}:${(data.duration%60).toString().padStart(2,'0')}` : 'HD Stream',
-              thumb: data.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-              url
-            };
-            displayCard(inspectedMedia);
-            resetInspectBtn();
-            return;
-          }
-        } catch (e) {}
-      }
+      try {
+        const isAudio = (currentFormat === 'audio');
+        const quality = qualitySelect.value;
+        const result = await requestMediaStream(url, isAudio, quality);
 
-      // Fallback preview
-      setTimeout(() => {
-        inspectedMedia = {
-          title: `Online Stream: ${url.slice(0, 30)}...`,
-          uploader: 'Content Creator',
-          duration: '03:45',
-          thumb: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-          url
-        };
-        displayCard(inspectedMedia);
-        resetInspectBtn();
-      }, 400);
+        // Populate Card
+        document.getElementById('card-title').textContent = url.split('?')[0];
+        document.getElementById('card-thumb').src = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80`;
+        document.getElementById('card-platform-badge').textContent = currentPlatform.toUpperCase();
+        document.getElementById('card-format-label').textContent = isAudio ? 'MP3 Audio Stream' : `MP4 Video (${quality.toUpperCase()})`;
+
+        const downloadLink = document.getElementById('download-link');
+        downloadLink.href = result.url;
+        downloadLink.setAttribute('download', result.filename);
+        
+        document.getElementById('media-card').classList.remove('hidden');
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        inspectBtn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i><span>Fetch Stream</span>';
+        lucide.createIcons();
+      }
     });
 
-    function resetInspectBtn() {
-      inspectBtn.innerHTML = '<i data-lucide="search" class="w-4 h-4"></i><span>Analyze Link</span>';
-      lucide.createIcons();
-    }
-
-    function displayCard(data) {
-      document.getElementById('card-thumb').src = data.thumb;
-      document.getElementById('card-duration').textContent = data.duration;
-      document.getElementById('card-title').textContent = data.title;
-      document.getElementById('card-uploader').textContent = data.uploader;
-      document.getElementById('card-format-label').textContent = currentFormat === 'video' ? 'MP4 Video' : 'MP3 Audio';
-      document.getElementById('media-card').classList.remove('hidden');
-    }
-
-    // Download Handler
-    document.getElementById('download-btn').addEventListener('click', async () => {
-      if (!inspectedMedia) return;
-      const progressBox = document.getElementById('single-progress-box');
-      const progressBar = document.getElementById('single-progress-bar');
-      const progressText = document.getElementById('single-progress-text');
-
-      progressBox.classList.remove('hidden');
-      progressBar.style.width = '30%';
-      progressText.textContent = 'Processing with backend...';
-
-      const ext = currentFormat === 'video' ? 'mp4' : 'mp3';
-      const fallbackFileName = getSafeFileName(inspectedMedia.title, ext);
-
-      if (isBackendOnline) {
-        try {
-          progressBar.style.width = '60%';
-          const res = await fetch(`${BACKEND_URL}/api/download`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: inspectedMedia.url,
-              mode: currentFormat,
-              quality: qualitySelect.value
-            })
-          });
-
-          if (res.ok) {
-            progressBar.style.width = '100%';
-            progressText.textContent = 'Saving file...';
-            
-            const disposition = res.headers.get('Content-Disposition');
-            const fileName = parseFilenameFromHeader(disposition, fallbackFileName);
-
-            const blob = await res.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(downloadUrl);
-            setTimeout(() => progressBox.classList.add('hidden'), 2000);
-            return;
-          }
-        } catch (e) {}
-      }
-
-      // Standby fallback simulation
-      setTimeout(() => {
-        progressBar.style.width = '100%';
-        progressText.textContent = 'File prepared!';
-        const blob = new Blob([new Uint8Array([0x00, 0x00, 0x00, 0x18])], { type: 'application/octet-stream' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fallbackFileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => progressBox.classList.add('hidden'), 1500);
-      }, 800);
-    });
-
-    // Batch Handler
+    // Batch Multi-Queue
     const batchInput = document.getElementById('batch-urls-input');
     const batchCount = document.getElementById('batch-count-label');
-    const batchZipBtn = document.getElementById('batch-zip-btn');
-    let batchBlobs = [];
+    const batchStartBtn = document.getElementById('batch-start-btn');
+    const batchTableCard = document.getElementById('batch-table-card');
+    const batchItemsContainer = document.getElementById('batch-items-container');
 
     batchInput.addEventListener('input', () => {
-      const count = batchInput.value.split('\n').filter(s => s.trim().length > 0).length;
-      batchCount.textContent = `${count} link${count === 1 ? '' : 's'} detected`;
+      const urls = batchInput.value.split('\n').filter(s => s.trim().length > 0);
+      batchCount.textContent = `${urls.length} link${urls.length === 1 ? '' : 's'} detected`;
     });
 
-    document.getElementById('batch-start-btn').addEventListener('click', async () => {
+    batchStartBtn.addEventListener('click', async () => {
       const urls = batchInput.value.split('\n').map(s => s.trim()).filter(Boolean);
-      if (urls.length === 0) return alert('Paste at least one URL');
+      if (urls.length === 0) return alert("Please enter at least one URL.");
 
-      const container = document.getElementById('batch-items-container');
-      document.getElementById('batch-table-card').classList.remove('hidden');
-      container.innerHTML = '';
-      batchBlobs = [];
-      batchZipBtn.disabled = true;
+      batchTableCard.classList.remove('hidden');
+      batchItemsContainer.innerHTML = '';
+      const isAudio = (currentFormat === 'audio');
 
       for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
         const row = document.createElement('div');
-        row.className = 'glass-panel p-3 rounded-2xl flex items-center justify-between text-xs';
+        row.className = 'glass-panel p-3.5 rounded-2xl flex items-center justify-between text-xs';
         row.innerHTML = `
-          <span class="truncate max-w-md font-mono">${urls[i]}</span>
-          <span id="batch-item-${i}" class="text-amber-400">Processing...</span>
+          <span class="truncate max-w-md font-mono text-slate-300">${url}</span>
+          <span id="batch-item-${i}" class="text-amber-400 flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Resolving</span>
         `;
-        container.appendChild(row);
+        batchItemsContainer.appendChild(row);
+        lucide.createIcons();
 
-        const ext = currentFormat === 'video' ? 'mp4' : 'mp3';
-        let blob = null;
-        let finalFileName = `media_${i + 1}.${ext}`;
-
-        if (isBackendOnline) {
-          try {
-            const res = await fetch(`${BACKEND_URL}/api/download`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: urls[i], mode: currentFormat, quality: 'highest' })
-            });
-            if (res.ok) {
-              const disposition = res.headers.get('Content-Disposition');
-              finalFileName = parseFilenameFromHeader(disposition, finalFileName);
-              blob = await res.blob();
-            }
-          } catch (e) {}
+        try {
+          const res = await requestMediaStream(url, isAudio, 'max');
+          const status = document.getElementById(`batch-item-${i}`);
+          status.className = 'text-emerald-400 flex items-center gap-2';
+          status.innerHTML = `<a href="${res.url}" target="_blank" download class="underline font-bold text-white bg-white/10 px-3 py-1 rounded-lg">Download File</a>`;
+        } catch (e) {
+          const status = document.getElementById(`batch-item-${i}`);
+          status.className = 'text-rose-400';
+          status.textContent = 'Failed to extract';
         }
-        if (!blob) blob = new Blob([new Uint8Array([0x00, 0x00, 0x00, 0x18])]);
-        batchBlobs.push({ name: finalFileName, blob });
-
-        document.getElementById(`batch-item-${i}`).className = 'text-emerald-400';
-        document.getElementById(`batch-item-${i}`).textContent = 'Done';
       }
-      batchZipBtn.disabled = false;
-    });
-
-    batchZipBtn.addEventListener('click', async () => {
-      if (batchBlobs.length === 0) return;
-      batchZipBtn.textContent = 'Compressing ZIP...';
-      const zip = new JSZip();
-      batchBlobs.forEach(b => zip.file(b.name, b.blob));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(zipBlob);
-      a.download = `omnistream_batch_${Date.now()}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      batchZipBtn.innerHTML = '<i data-lucide="archive" class="w-3.5 h-3.5"></i> Export All as ZIP';
-      lucide.createIcons();
     });
   </script>
 </body>
