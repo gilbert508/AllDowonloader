@@ -1,6 +1,5 @@
 {
-  "name": "universal-downloader",
+  "name": "alldownloader",
   "version": "1.0.0",
-  "private": true,
-  "dependencies": {}
+  "private": true
 }
