@@ -12,119 +12,178 @@ export default async function handler(req, res) {
 
   url = url.trim();
 
-  // Normalize YouTube URLs (strip ?feature=share, reels, shorts parameters)
+  // 1. Sanitize tracking parameters (?feature=share, ?si=, etc.)
   const ytMatch = url.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
   const ytId = ytMatch ? ytMatch[1] : null;
 
   let title = "media_download";
   let thumb = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800";
 
-  // Step 1: Resolve metadata
   if (ytId) {
     thumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
     try {
-      const oeRes = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
-      if (oeRes.ok) {
-        const oeData = await oeRes.json();
+      const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
+      if (oe.ok) {
+        const oeData = await oe.json();
         title = oeData.title || title;
       }
     } catch (_) {}
   }
 
-  const safeTitle = title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
+  const cleanTitle = title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
   const targetUrl = ytId ? `https://www.youtube.com/watch?v=${ytId}` : url;
 
-  // Step 2: High-speed multi-node resolver pool
-  const RESOLVER_ENDPOINTS = [
-    {
-      url: "https://cobalt-api.kwiatekmiki.com",
-      payload: {
-        url: targetUrl,
-        downloadMode: isAudio ? "audio" : "auto",
-        videoQuality: "1080",
-        audioFormat: "mp3",
-        filenameStyle: "basic",
-        youtubeVideoCodec: "h264"
+  // -------------------------------------------------------------
+  // Primary Engine: High-Speed Direct Stream Resolver
+  // -------------------------------------------------------------
+  if (ytId) {
+    try {
+      // Step A: Request format analysis
+      const analyzeRes = await fetch("https://www.y2mate.com/mates/analyzeV2/ajax", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: `k_query=${encodeURIComponent(targetUrl)}&k_page=home&hl=en&q_auto=0`,
+        signal: AbortSignal.timeout(6000)
+      });
+
+      if (analyzeRes.ok) {
+        const analyzeData = await analyzeRes.json();
+        if (analyzeData.status === "success" && analyzeData.links) {
+          title = analyzeData.title || cleanTitle;
+          let selectedKey = null;
+
+          if (isAudio && analyzeData.links.mp3) {
+            const keys = Object.keys(analyzeData.links.mp3);
+            if (keys.length > 0) selectedKey = analyzeData.links.mp3[keys[0]].k;
+          } else if (analyzeData.links.mp4) {
+            const mp4 = analyzeData.links.mp4;
+            const preferred = ["1080p", "720p", "auto", "480p", "360p"];
+            for (const q of preferred) {
+              for (const k in mp4) {
+                if (mp4[k].q === q || k === q) {
+                  selectedKey = mp4[k].k;
+                  break;
+                }
+              }
+              if (selectedKey) break;
+            }
+            if (!selectedKey) {
+              const keys = Object.keys(mp4);
+              if (keys.length > 0) selectedKey = mp4[keys[0]].k;
+            }
+          }
+
+          if (selectedKey) {
+            // Step B: Convert and fetch direct CDN download URL
+            const convertRes = await fetch("https://www.y2mate.com/mates/convertV2/index", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "X-Requested-With": "XMLHttpRequest"
+              },
+              body: `vid=${encodeURIComponent(analyzeData.vid)}&k=${encodeURIComponent(selectedKey)}`,
+              signal: AbortSignal.timeout(6000)
+            });
+
+            if (convertRes.ok) {
+              const convertData = await convertRes.json();
+              if (convertData.status === "success" && convertData.dlink) {
+                return res.status(200).json({
+                  success: true,
+                  title: cleanTitle,
+                  thumb: thumb,
+                  url: convertData.dlink,
+                  filename: `${cleanTitle}.${isAudio ? 'mp3' : 'mp4'}`
+                });
+              }
+            }
+          }
+        }
       }
-    },
-    {
-      url: "https://cobalt.hyper.lol",
-      payload: {
-        url: targetUrl,
-        downloadMode: isAudio ? "audio" : "auto",
-        videoQuality: "1080",
-        audioFormat: "mp3",
-        filenameStyle: "basic"
-      }
-    },
-    {
-      url: "https://api.wuk.sh",
-      payload: {
-        url: targetUrl,
-        downloadMode: isAudio ? "audio" : "auto",
-        videoQuality: "720",
-        audioFormat: "mp3"
-      }
-    }
+    } catch (_) {}
+  }
+
+  // -------------------------------------------------------------
+  // Secondary Engine: Multi-Network Cluster (Instagram, FB, YT backup)
+  // -------------------------------------------------------------
+  const CLUSTER_ENDPOINTS = [
+    "https://cobalt-api.kwiatekmiki.com",
+    "https://cobalt.hyper.lol",
+    "https://api.wuk.sh"
   ];
 
+  const payload = {
+    url: targetUrl,
+    downloadMode: isAudio ? "audio" : "auto",
+    videoQuality: "1080",
+    audioFormat: "mp3"
+  };
+
   try {
-    const resolvedStream = await Promise.any(
-      RESOLVER_ENDPOINTS.map(async (node) => {
-        const response = await fetch(node.url, {
+    const clusterResult = await Promise.any(
+      CLUSTER_ENDPOINTS.map(async (endpoint) => {
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            "User-Agent": "Mozilla/5.0"
           },
-          body: JSON.stringify(node.payload),
-          signal: AbortSignal.timeout(5500)
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(5000)
         });
 
-        if (!response.ok) throw new Error("Node failed");
+        if (!response.ok) throw new Error();
         const data = await response.json();
-
-        if (data.url) {
-          return {
-            streamUrl: data.url,
-            filename: `${safeTitle}.${isAudio ? 'mp3' : 'mp4'}`
-          };
-        }
-
-        if (data.picker && data.picker.length > 0) {
-          return {
-            streamUrl: data.picker[0].url,
-            filename: `${safeTitle}.${isAudio ? 'mp3' : 'mp4'}`
-          };
-        }
-
-        throw new Error("No stream found");
+        if (data.url) return data.url;
+        if (data.picker && data.picker.length > 0) return data.picker[0].url;
+        throw new Error();
       })
     );
 
     return res.status(200).json({
       success: true,
-      title: safeTitle,
+      title: cleanTitle,
       thumb: thumb,
-      url: resolvedStream.streamUrl,
-      filename: resolvedStream.filename
+      url: clusterResult,
+      filename: `${cleanTitle}.${isAudio ? 'mp3' : 'mp4'}`
     });
-  } catch (err) {
-    // Fallback: If external clusters reject cloud IPs, provide direct CDN pass-through
-    if (ytId) {
-      return res.status(200).json({
-        success: true,
-        title: safeTitle,
-        thumb: thumb,
-        url: `https://www.youtube-nocookie.com/embed/${ytId}`,
-        filename: `${safeTitle}.mp4`,
-        isEmbed: true
-      });
-    }
+  } catch (_) {}
 
-    return res.status(500).json({
-      error: "Extraction servers are currently under load. Please retry in a few seconds."
+  // -------------------------------------------------------------
+  // Tertiary Fallback Engine
+  // -------------------------------------------------------------
+  try {
+    const vkrRes = await fetch(`https://api.vkrdownloader.com/server?v=${encodeURIComponent(targetUrl)}`, {
+      signal: AbortSignal.timeout(6000)
     });
-  }
+    if (vkrRes.ok) {
+      const vkrData = await vkrRes.json();
+      if (vkrData.data && vkrData.data.downloads && vkrData.data.downloads.length > 0) {
+        const downloads = vkrData.data.downloads;
+        let chosen = isAudio
+          ? downloads.find(x => x.format_id?.includes("audio") || x.extension === "mp3") || downloads[0]
+          : downloads.find(x => x.extension === "mp4") || downloads[0];
+
+        if (chosen && chosen.url) {
+          return res.status(200).json({
+            success: true,
+            title: cleanTitle,
+            thumb: vkrData.data.thumbnail || thumb,
+            url: chosen.url,
+            filename: `${cleanTitle}.${isAudio ? 'mp3' : 'mp4'}`
+          });
+        }
+      }
+    }
+  } catch (_) {}
+
+  return res.status(500).json({
+    error: "Media servers could not extract this video stream. Please check link validity and try again."
+  });
 }
