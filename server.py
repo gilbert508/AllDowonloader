@@ -1,6 +1,6 @@
 """
-All Downloader - Universal yt-dlp Backend Server
-Compatible with Local (Windows/Mac/Linux) and Cloud (Render/Railway/Docker).
+All Downloader - Universal Cloud & Local yt-dlp Backend Server
+Bypasses Datacenter IP blocking via mobile player client spoofing.
 """
 
 import os
@@ -21,60 +21,39 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Environment detection: Render automatically sets RENDER=true
 IS_CLOUD = os.environ.get("RENDER") is not None or os.environ.get("IS_CLOUD") is not None
-
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # -------------------------------------------------------------
-# Auto-Shutdown (Local execution only)
+# yt-dlp Options Configured for Datacenter / Cloud Workarounds
 # -------------------------------------------------------------
-HEARTBEAT_TIMEOUT = 12
-last_heartbeat_time = time.time()
-active_downloads_count = 0
-active_downloads_lock = threading.Lock()
-first_connection_established = False
-
-def auto_shutdown_monitor():
-    global last_heartbeat_time, first_connection_established
-    while True:
-        time.sleep(2)
-        if not first_connection_established:
-            continue
-            
-        with active_downloads_lock:
-            busy = (active_downloads_count > 0)
-
-        elapsed = time.time() - last_heartbeat_time
-        if elapsed > HEARTBEAT_TIMEOUT and not busy:
-            logger.info("Browser session closed. Shutting down local server...")
-            os._exit(0)
-
-# Only start the auto-shutdown monitor if running locally
-if not IS_CLOUD:
-    threading.Thread(target=auto_shutdown_monitor, daemon=True).start()
-
-
-@app.route("/api/heartbeat", methods=["POST"])
-def heartbeat():
-    global last_heartbeat_time, first_connection_established
-    last_heartbeat_time = time.time()
-    first_connection_established = True
-    return jsonify({"status": "alive"})
+BASE_YDL_OPTS = {
+    "quiet": True,
+    "no_warnings": True,
+    "noplaylist": True,
+    "nocheckcertificate": True,
+    "source_address": "0.0.0.0",
+    "extractor_args": {
+        "youtube": {
+            # Mobile clients bypass YouTube's datacenter bot challenge
+            "player_client": ["android", "ios", "mweb"]
+        }
+    },
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+}
 
 
 @app.route("/", methods=["GET"])
 def index():
-    current_folder = os.path.dirname(os.path.abspath(__file__))
-    return send_from_directory(current_folder, "index.html")
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), "index.html")
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    global last_heartbeat_time, first_connection_established
-    last_heartbeat_time = time.time()
-    first_connection_established = True
     return jsonify({
         "status": "online",
         "engine": "yt-dlp",
@@ -83,48 +62,38 @@ def health():
     })
 
 
+@app.route("/api/heartbeat", methods=["POST"])
+def heartbeat():
+    return jsonify({"status": "alive"})
+
+
 @app.route("/api/info", methods=["POST"])
 def get_info():
-    global last_heartbeat_time
-    last_heartbeat_time = time.time()
-    
     data = request.get_json(force=True, silent=True) or {}
     url = data.get("url")
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
+    ydl_opts = dict(BASE_YDL_OPTS)
+    ydl_opts.update({
         "skip_download": True,
         "extract_flat": False,
-    }
+    })
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            formats = []
-            if "formats" in info:
-                for f in info["formats"]:
-                    formats.append({
-                        "format_id": f.get("format_id"),
-                        "ext": f.get("ext"),
-                        "resolution": f.get("resolution") or f"{f.get('width','?')}x{f.get('height','?')}",
-                        "height": f.get("height"),
-                        "fps": f.get("fps"),
-                        "filesize": f.get("filesize") or f.get("filesize_approx"),
-                        "vcodec": f.get("vcodec"),
-                        "acodec": f.get("acodec"),
-                    })
+            # If a playlist was returned accidentally, pick first item
+            if "entries" in info and info["entries"]:
+                info = info["entries"][0]
 
             return jsonify({
                 "id": info.get("id"),
-                "title": info.get("title", "Unknown Title"),
-                "uploader": info.get("uploader") or info.get("channel", "Unknown Creator"),
+                "title": info.get("title", "Video Stream"),
+                "uploader": info.get("uploader") or info.get("channel") or info.get("creator", "Creator"),
                 "duration": info.get("duration", 0),
                 "thumbnail": info.get("thumbnail"),
-                "formats_count": len(formats),
                 "webpage_url": info.get("webpage_url", url),
             })
     except Exception as e:
@@ -134,9 +103,6 @@ def get_info():
 
 @app.route("/api/download", methods=["POST"])
 def download_media():
-    global active_downloads_count, last_heartbeat_time
-    last_heartbeat_time = time.time()
-
     data = request.get_json(force=True, silent=True) or {}
     url = data.get("url")
     mode = data.get("mode", "video")
@@ -145,18 +111,14 @@ def download_media():
     if not url:
         return jsonify({"error": "Missing URL"}), 400
 
-    with active_downloads_lock:
-        active_downloads_count += 1
-
     job_id = str(uuid.uuid4())[:8]
     output_template = os.path.join(DOWNLOAD_DIR, f"{job_id}_%(title)s.%(ext)s")
 
-    ydl_opts = {
+    ydl_opts = dict(BASE_YDL_OPTS)
+    ydl_opts.update({
         "outtmpl": output_template,
-        "quiet": False,
-        "no_warnings": True,
         "windowsfilenames": True,
-    }
+    })
 
     if mode == "audio":
         preferred_quality = "320"
@@ -183,6 +145,8 @@ def download_media():
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
+            if "entries" in info and info["entries"]:
+                info = info["entries"][0]
             raw_title = info.get("title", "media")
 
         safe_title = re.sub(r'[\\/*?:"<>|]', "", raw_title).strip()
@@ -193,17 +157,12 @@ def download_media():
         matching_files = glob.glob(pattern)
 
         if not matching_files:
-            return jsonify({"error": "File was processed but could not be located."}), 500
+            return jsonify({"error": "Media processed but file was not found on disk."}), 500
 
         file_path = matching_files[0]
 
         @after_this_request
         def cleanup_after_transfer(response):
-            global active_downloads_count, last_heartbeat_time
-            last_heartbeat_time = time.time()
-            with active_downloads_lock:
-                if active_downloads_count > 0:
-                    active_downloads_count -= 1
             try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
@@ -221,16 +180,10 @@ def download_media():
         return response
 
     except Exception as e:
-        with active_downloads_lock:
-            if active_downloads_count > 0:
-                active_downloads_count -= 1
         logger.error(f"Download execution failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    if not IS_CLOUD:
-        import webbrowser
-        threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
     app.run(host="0.0.0.0", port=port, debug=False)
