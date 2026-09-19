@@ -204,7 +204,7 @@
     let currentPlatform = 'yt';
     let activeMediaResult = null;
 
-    // Direct Cross-Platform Media Resolver
+    // Cross-Platform Media Resolver
     async function resolveMedia(rawUrl, isAudio) {
       const cleanUrl = rawUrl.trim();
       const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
@@ -222,59 +222,89 @@
           }
         } catch (_) {}
 
-        // Multi-node parallel resolution for direct playable CDN streams
+        const cleanFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim()}`;
+
+        // 1. Direct Invidious API Clusters
         const INVIDIOUS_INSTANCES = [
           'https://inv.nadeko.net',
           'https://invidious.nerdvpn.de',
           'https://invidious.private.coffee',
-          'https://invidious.f5.si'
+          'https://invidious.f5.si',
+          'https://vid.priv.au'
         ];
 
-        try {
-          const streamData = await Promise.any(
-            INVIDIOUS_INSTANCES.map(async (host) => {
-              const res = await fetch(`${host}/api/v1/videos/${ytId}`, { signal: AbortSignal.timeout(4500) });
-              if (!res.ok) throw new Error('Failed');
-              const d = await res.json();
-              if (!d.formatStreams && !d.adaptiveFormats) throw new Error('Empty');
-              return d;
-            })
-          );
+        for (const host of INVIDIOUS_INSTANCES) {
+          try {
+            const res = await fetch(`${host}/api/v1/videos/${ytId}`, { signal: AbortSignal.timeout(3500) });
+            if (!res.ok) continue;
 
-          title = streamData.title || title;
-          const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim()}`;
+            const d = await res.json();
+            title = d.title || title;
 
-          if (isAudio) {
-            const audios = (streamData.adaptiveFormats || [])
-              .filter(f => f.type?.includes('audio') || f.container === 'm4a')
-              .sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0));
+            if (isAudio) {
+              const audios = (d.adaptiveFormats || [])
+                .filter(f => f.type?.includes('audio') || f.container === 'm4a')
+                .sort((a, b) => (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0));
 
-            if (audios.length > 0) {
-              return { title, thumb, url: audios[0].url, filename: `${safeFilename}.mp3` };
+              if (audios.length > 0) {
+                return { title, thumb, url: audios[0].url, filename: `${cleanFilename}.mp3` };
+              }
+            } else {
+              const videos = (d.formatStreams || [])
+                .filter(f => f.container === 'mp4' || f.type?.includes('mp4'))
+                .sort((a, b) => (parseInt(b.resolution) || 0) - (parseInt(a.resolution) || 0));
+
+              if (videos.length > 0) {
+                return { title, thumb, url: videos[0].url, filename: `${cleanFilename}.mp4` };
+              }
             }
-          } else {
-            // Direct MP4 with video + audio
-            const videos = (streamData.formatStreams || [])
-              .filter(f => f.container === 'mp4' || f.type?.includes('mp4'))
-              .sort((a, b) => (parseInt(b.resolution || 0) - parseInt(a.resolution || 0)));
-
-            if (videos.length > 0) {
-              return { title, thumb, url: videos[0].url, filename: `${safeFilename}.mp4` };
-            }
+          } catch (_) {
+            continue;
           }
-        } catch (_) {}
+        }
 
-        // Secondary direct format resolver
-        return {
-          title,
-          thumb,
-          url: `https://yt-stream.vercel.app/api/stream?id=${ytId}&audio=${isAudio ? 'true' : 'false'}`,
-          filename: `${title.replace(/[\\/*?:"<>|]/g, '').trim()}.${isAudio ? 'mp3' : 'mp4'}`
+        // 2. Cobalt Primary Extractor
+        const cobaltPayload = {
+          url: `https://www.youtube.com/watch?v=${ytId}`,
+          downloadMode: isAudio ? 'audio' : 'auto',
+          videoQuality: '1080',
+          audioFormat: 'mp3'
         };
+
+        const COBALT_NODES = [
+          'https://cobalt-api.kwiatekmiki.com',
+          'https://cobalt.hyper.lol'
+        ];
+
+        for (const node of COBALT_NODES) {
+          try {
+            const cRes = await fetch(node, {
+              method: 'POST',
+              headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+              body: JSON.stringify(cobaltPayload),
+              signal: AbortSignal.timeout(4000)
+            });
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              if (cData.url) {
+                return {
+                  title,
+                  thumb,
+                  url: cData.url,
+                  filename: `${cleanFilename}.${isAudio ? 'mp3' : 'mp4'}`
+                };
+              }
+            }
+          } catch (_) {
+            continue;
+          }
+        }
+
+        throw new Error("Unable to extract stream. The video may be region-locked or restricted.");
       }
 
       // Instagram & Facebook resolution
-      const COBALT_NODES = [
+      const COBALT_SOCIAL_NODES = [
         'https://cobalt-api.kwiatekmiki.com',
         'https://cobalt.hyper.lol'
       ];
@@ -285,7 +315,7 @@
         videoQuality: '1080'
       };
 
-      for (const node of COBALT_NODES) {
+      for (const node of COBALT_SOCIAL_NODES) {
         try {
           const res = await fetch(node, {
             method: 'POST',
@@ -312,7 +342,7 @@
       throw new Error("Unable to extract stream. Verify link is public.");
     }
 
-    // Direct Browser Download Handler (No external website redirects)
+    // Direct Browser Download Trigger
     async function triggerNativeDownload(mediaUrl, filename) {
       try {
         const res = await fetch(mediaUrl, { mode: 'cors' });
@@ -330,7 +360,7 @@
         }
       } catch (_) {}
 
-      // Direct fallback stream for iOS Safari & Android
+      // Fallback for cross-origin media URLs
       const link = document.createElement('a');
       link.href = mediaUrl;
       link.setAttribute('download', filename);
@@ -422,7 +452,6 @@
     downloadBtn.addEventListener('click', async () => {
       if (!activeMediaResult || !activeMediaResult.url) return;
 
-      const btnText = document.getElementById('download-btn-text');
       downloadBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
       lucide.createIcons();
 
