@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All Downloader | Universal Media Engine</title>
+  <title>All Downloader | Fast & Reliable</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -53,14 +53,13 @@
       <div class="flex items-center gap-4">
         <div id="status-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span id="status-label">Universal Network (Active)</span>
+          <span>Edge Network Ready</span>
         </div>
       </div>
     </div>
   </header>
 
   <main class="relative z-10 flex-1 max-w-5xl mx-auto w-full px-6 py-10">
-    <!-- Tabs -->
     <div class="flex justify-center mb-8">
       <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1">
         <button data-platform="yt" class="platform-tab active px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2.5 bg-white/[0.08] text-white">
@@ -75,7 +74,6 @@
       </div>
     </div>
 
-    <!-- Title Bar -->
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -95,7 +93,7 @@
         <div class="flex flex-col md:flex-row gap-3">
           <div class="relative flex-1">
             <i data-lucide="link-2" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input id="single-url-input" type="text" placeholder="Paste YouTube link (video, shorts, reels)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
+            <input id="single-url-input" type="text" placeholder="Paste link (YouTube Shorts, Video, Reel, Watch)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
           </div>
           <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95">
             <i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
@@ -130,18 +128,20 @@
       <!-- Result Card -->
       <div id="media-card" class="glass-panel glass-panel-hover p-6 rounded-3xl hidden">
         <div class="flex flex-col md:flex-row gap-6 items-start">
-          <div class="relative w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-surface-800 flex-shrink-0 border border-white/10">
-            <img id="card-thumb" src="" alt="Thumbnail" class="w-full h-full object-cover">
+          <div class="relative w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-surface-800 flex-shrink-0 border border-white/10 flex items-center justify-center">
+            <i data-lucide="play-circle" class="w-12 h-12 text-white/50"></i>
           </div>
           <div class="flex-1 space-y-3 w-full">
             <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YOUTUBE</span>
-            <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Stream Title</h3>
-            <p id="card-uploader" class="text-xs text-slate-400">Ready to download</p>
+            <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Direct Stream Ready</h3>
+            <p id="card-uploader" class="text-xs text-emerald-400 flex items-center gap-1">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Clean high-speed stream resolved
+            </p>
             <div class="pt-4 flex items-center justify-between border-t border-white/[0.06]">
               <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video</span>
-              <a id="download-link" href="#" target="_blank" download class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
+              <a id="download-link" href="#" target="_blank" class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span id="download-btn-text">Download Now</span>
+                <span>Download Media</span>
               </a>
             </div>
           </div>
@@ -155,11 +155,9 @@
         <textarea id="batch-urls-input" rows="5" placeholder="Paste multiple links (one per line)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl p-4 text-xs font-mono text-white focus:outline-none"></textarea>
         <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/[0.06]">
           <span id="batch-count-label" class="text-xs text-slate-400">0 links detected</span>
-          <div class="flex items-center gap-3">
-            <button id="batch-start-btn" class="px-6 py-3 rounded-xl bg-white text-slate-900 font-bold text-xs flex items-center gap-2">
-              <i data-lucide="play" class="w-3.5 h-3.5"></i> Start Batch Queue
-            </button>
-          </div>
+          <button id="batch-start-btn" class="px-6 py-3 rounded-xl bg-white text-slate-900 font-bold text-xs flex items-center gap-2">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Start Batch Queue
+          </button>
         </div>
       </div>
       <div id="batch-table-card" class="glass-panel p-6 rounded-3xl hidden">
@@ -172,7 +170,7 @@
   <script>
     lucide.createIcons();
 
-    // 3D Crystal Mesh
+    // Three.js Background
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -212,48 +210,22 @@
     }
     animate();
 
-    // High-speed API Nodes (Failover Ring)
-    const API_INSTANCES = [
-      "https://api.cobalt.tools",
-      "https://cobalt-api.kwiatekmiki.com",
-      "https://cobalt.hyper.lol",
-      "https://api.wuk.sh"
-    ];
-
     let currentFormat = 'video';
     let currentPlatform = 'yt';
 
-    // Core universal resolver
-    async function requestMediaStream(targetUrl, isAudioOnly, quality) {
-      const payload = {
-        url: targetUrl,
-        downloadMode: isAudioOnly ? 'audio' : 'auto',
-        videoQuality: quality === 'max' ? 'max' : quality,
-        youtubeVideoCodec: 'h264'
-      };
+    // Calls your internal Vercel Serverless Function
+    async function requestStream(targetUrl, isAudio, quality) {
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl, isAudio, quality })
+      });
 
-      for (const instance of API_INSTANCES) {
-        try {
-          const res = await fetch(instance, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            if (data.url) return { url: data.url, filename: data.filename || 'media' };
-            if (data.picker && data.picker.length > 0) return { url: data.picker[0].url, filename: 'media' };
-          }
-        } catch (err) {
-          // Try next instance in ring
-          continue;
-        }
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || 'Unable to extract stream.');
       }
-      throw new Error("Unable to extract stream. Please check link validity.");
+      return data;
     }
 
     // Platform Switching
@@ -309,11 +281,11 @@
       qualitySelect.disabled = true;
     });
 
-    // Analyze & Fetch Single Link
+    // Analyze Single
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
-      if (!url) return alert("Please enter a valid media link.");
+      if (!url) return alert("Please enter a valid link.");
 
       inspectBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Extracting...</span>';
       lucide.createIcons();
@@ -321,11 +293,9 @@
       try {
         const isAudio = (currentFormat === 'audio');
         const quality = qualitySelect.value;
-        const result = await requestMediaStream(url, isAudio, quality);
+        const result = await requestStream(url, isAudio, quality);
 
-        // Populate Card
         document.getElementById('card-title').textContent = url.split('?')[0];
-        document.getElementById('card-thumb').src = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80`;
         document.getElementById('card-platform-badge').textContent = currentPlatform.toUpperCase();
         document.getElementById('card-format-label').textContent = isAudio ? 'MP3 Audio Stream' : `MP4 Video (${quality.toUpperCase()})`;
 
@@ -374,14 +344,14 @@
         lucide.createIcons();
 
         try {
-          const res = await requestMediaStream(url, isAudio, 'max');
+          const res = await requestStream(url, isAudio, 'max');
           const status = document.getElementById(`batch-item-${i}`);
           status.className = 'text-emerald-400 flex items-center gap-2';
-          status.innerHTML = `<a href="${res.url}" target="_blank" download class="underline font-bold text-white bg-white/10 px-3 py-1 rounded-lg">Download File</a>`;
+          status.innerHTML = `<a href="${res.url}" target="_blank" download="${res.filename}" class="underline font-bold text-white bg-white/10 px-3 py-1 rounded-lg">Download File</a>`;
         } catch (e) {
           const status = document.getElementById(`batch-item-${i}`);
           status.className = 'text-rose-400';
-          status.textContent = 'Failed to extract';
+          status.textContent = 'Failed';
         }
       }
     });
