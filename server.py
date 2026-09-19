@@ -1,9 +1,6 @@
 """
-All Downloader - Local yt-dlp Backend Server
-Features:
-- Auto browser launcher on start
-- Auto-shutdown when browser tab is closed (and no downloads are active)
-- Video & Audio single/batch downloading with native file naming
+All Downloader - Universal yt-dlp Backend Server
+Compatible with Local (Windows/Mac/Linux) and Cloud (Render/Railway/Docker).
 """
 
 import os
@@ -14,7 +11,6 @@ import uuid
 import glob
 import logging
 import threading
-import webbrowser
 from flask import Flask, request, jsonify, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
 import yt_dlp
@@ -25,20 +21,22 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+# Environment detection: Render automatically sets RENDER=true
+IS_CLOUD = os.environ.get("RENDER") is not None or os.environ.get("IS_CLOUD") is not None
+
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # -------------------------------------------------------------
-# Auto-Shutdown & Heartbeat State Tracker
+# Auto-Shutdown (Local execution only)
 # -------------------------------------------------------------
-HEARTBEAT_TIMEOUT = 10  # Seconds to wait after browser is closed before terminating
+HEARTBEAT_TIMEOUT = 12
 last_heartbeat_time = time.time()
 active_downloads_count = 0
 active_downloads_lock = threading.Lock()
 first_connection_established = False
 
 def auto_shutdown_monitor():
-    """Monitors if the browser tab was closed. Shuts down cleanly if idle."""
     global last_heartbeat_time, first_connection_established
     while True:
         time.sleep(2)
@@ -50,11 +48,12 @@ def auto_shutdown_monitor():
 
         elapsed = time.time() - last_heartbeat_time
         if elapsed > HEARTBEAT_TIMEOUT and not busy:
-            logger.info("Browser session closed and no downloads active. Shutting down server...")
+            logger.info("Browser session closed. Shutting down local server...")
             os._exit(0)
 
-# Start heartbeat monitor in a background daemon thread
-threading.Thread(target=auto_shutdown_monitor, daemon=True).start()
+# Only start the auto-shutdown monitor if running locally
+if not IS_CLOUD:
+    threading.Thread(target=auto_shutdown_monitor, daemon=True).start()
 
 
 @app.route("/api/heartbeat", methods=["POST"])
@@ -231,10 +230,7 @@ def download_media():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # Open browser automatically on launch
-    threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
-    print("=" * 60)
-    print(f" All Downloader running on http://127.0.0.1:{port}")
-    print(" Auto-shutdown active: Closes automatically when tabs close.")
-    print("=" * 60)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    if not IS_CLOUD:
+        import webbrowser
+        threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+    app.run(host="0.0.0.0", port=port, debug=False)
