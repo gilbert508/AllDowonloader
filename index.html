@@ -246,26 +246,34 @@
       } catch (_) {}
 
       // Official Android API query directly from client browser (uses home/mobile IP)
-      const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          videoId: ytId,
-          context: {
-            client: {
-              clientName: "ANDROID_TESTSUITE",
-              clientVersion: "1.9",
-              androidSdkVersion: 30,
-              hl: "en",
-              gl: "US"
+      let res;
+      try {
+        res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            videoId: ytId,
+            context: {
+              client: {
+                clientName: "ANDROID_TESTSUITE",
+                clientVersion: "1.9",
+                androidSdkVersion: 30,
+                hl: "en",
+                gl: "US"
+              }
             }
-          }
-        })
-      });
+          })
+        });
+      } catch (_) {
+        throw new Error("YouTube blocks direct browser track extraction (CORS). The WASM merger is ready, but this link needs a same-origin extractor or proxy.");
+      }
 
-      if (!res.ok) throw new Error("Unable to fetch video data from YouTube.");
+      if (!res.ok) throw new Error(`YouTube track request failed (HTTP ${res.status}).`);
 
       const data = await res.json();
+      if (data.playabilityStatus?.status === "ERROR" || data.playabilityStatus?.status === "UNPLAYABLE") {
+        throw new Error(data.playabilityStatus.reason || "YouTube did not provide playable tracks.");
+      }
       const adaptive = data.streamingData?.adaptiveFormats || [];
       const combined = data.streamingData?.formats || [];
 
