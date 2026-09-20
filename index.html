@@ -260,11 +260,14 @@
     // Resolve media on the server so YouTube's internal API and expiring URLs
     // are never exposed to browser CORS and redirect rules.
     async function resolveDirectMedia(rawUrl, isAudio) {
-      const response = await fetch('/api/resolve', {
+      const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(rawUrl);
+      const request = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: rawUrl.trim(), audio: isAudio })
-      });
+      };
+      let response = await fetch(isYouTube ? '/api/yt' : '/api/resolve', request);
+      if (!response.ok && isYouTube) response = await fetch('/api/resolve', request);
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Media extraction failed.');
       return data;
