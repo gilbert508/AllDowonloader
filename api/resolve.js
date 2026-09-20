@@ -135,3 +135,6 @@ module.exports = async (req, res) => {
     return json(res, 502, { error: error.message || 'Media extraction failed.' });
   }
 };
+
+module.exports.youtubeId = youtubeId;
+module.exports.resolveYouTube = resolveYouTube;
