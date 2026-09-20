@@ -27,7 +27,6 @@
     {
       "source": "/vendor/814.ffmpeg.js",
       "destination": "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js"
-    },
-    { "source": "/(.*)", "destination": "/index.html" }
+    }
   ]
 }
