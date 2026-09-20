@@ -138,7 +138,7 @@
               <div class="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
               </div>
-              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Starting transmission...</p>
+              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Downloading stream...</p>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@
   <script>
     lucide.createIcons();
 
-    // 3D Canvas Background
+    // 3D Background
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -257,18 +257,18 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Native Cross-Platform Downloader (Triggers file download dialog on iOS, Android, and PC)
-    function triggerDownload(mediaUrl, filename) {
+    // Native Cross-Platform Download
+    function downloadBlobDirectly(mediaUrl, filename) {
       const a = document.createElement('a');
       a.href = mediaUrl;
-      a.setAttribute('download', filename);
-      a.style.display = 'none';
+      a.download = filename;
+      a.target = '_self';
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => a.remove(), 2000);
+      setTimeout(() => a.remove(), 1500);
     }
 
-    // Inspect Single Link
+    // Inspect Single Media
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
@@ -301,7 +301,7 @@
       }
     });
 
-    // Single Download Trigger
+    // Download Button Action
     const downloadTriggerBtn = document.getElementById('download-trigger-btn');
     downloadTriggerBtn.addEventListener('click', () => {
       if (!currentResolvedItem || !currentResolvedItem.url) return;
@@ -311,27 +311,24 @@
       const pStatus = document.getElementById('progress-status');
 
       pBox.classList.remove('hidden');
-      pBar.style.width = '50%';
-      pStatus.textContent = 'Sending download stream...';
+      pBar.style.width = '60%';
+      pStatus.textContent = 'Saving file...';
 
       downloadTriggerBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
       lucide.createIcons();
 
-      triggerDownload(currentResolvedItem.url, currentResolvedItem.filename);
+      downloadBlobDirectly(currentResolvedItem.url, currentResolvedItem.filename);
 
       setTimeout(() => {
         pBar.style.width = '100%';
-        pStatus.textContent = 'Transfer complete!';
-      }, 800);
-
-      setTimeout(() => {
+        pStatus.textContent = 'File transfer started!';
         downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
-        pBox.classList.add('hidden');
         lucide.createIcons();
-      }, 1500);
+        setTimeout(() => pBox.classList.add('hidden'), 1500);
+      }, 1000);
     });
 
-    // Batch Multi-Queue
+    // Batch Queue Processor
     const batchInput = document.getElementById('batch-urls-input');
     const batchCount = document.getElementById('batch-count-label');
     const batchStartBtn = document.getElementById('batch-start-btn');
@@ -372,7 +369,7 @@
 
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-emerald-400 flex items-center gap-2';
-          s.innerHTML = `<button onclick="triggerDownload('${item.url}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
+          s.innerHTML = `<button onclick="downloadBlobDirectly('${item.url}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
         } catch (_) {
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-rose-400';
