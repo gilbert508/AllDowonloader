@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All Downloader | Universal Media Suite</title>
+  <title>All Downloader | WebAssembly Muxer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- FFmpeg.wasm 0.12 UMD build -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <script>
@@ -42,17 +45,17 @@
     <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-rose-500/20">
-          <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+          <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
         </div>
         <div>
           <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">ALL</span>
-          <span class="text-xs font-semibold px-2 py-0.5 ml-2 rounded-full border border-white/10 text-slate-400">DOWNLOADER</span>
+          <span class="text-xs font-semibold px-2 py-0.5 ml-2 rounded-full border border-white/10 text-slate-400">WASM ENGINE</span>
         </div>
       </div>
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Zero-Redirect Stream Engine</span>
+          <span id="engine-status">WASM Ready</span>
         </div>
       </div>
     </div>
@@ -76,13 +79,9 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Direct Stream</span>
+          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">In-Browser Muxing</span>
         </h1>
-        <p class="text-sm text-slate-400 mt-1">Direct stream decoding straight to device storage</p>
-      </div>
-      <div class="glass-panel p-1 rounded-xl flex items-center">
-        <button id="mode-single-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white">Single</button>
-        <button id="mode-batch-btn" class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white">Batch</button>
+        <p class="text-sm text-slate-400 mt-1">Lossless client-side audio/video merging without backend servers</p>
       </div>
     </div>
 
@@ -92,7 +91,7 @@
         <div class="flex flex-col md:flex-row gap-3">
           <div class="relative flex-1">
             <i data-lucide="link-2" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input id="single-url-input" type="text" placeholder="Paste link (YouTube Shorts, Watch, Reel, Post)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
+            <input id="single-url-input" type="text" placeholder="Paste YouTube link (Shorts, Watch, Reel)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
           </div>
           <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95">
             <i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
@@ -102,13 +101,13 @@
 
         <div class="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06]">
           <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold text-slate-400">Mode:</span>
+            <span class="text-xs font-semibold text-slate-400">Output:</span>
             <div class="glass-panel p-1 rounded-xl flex items-center">
               <button id="format-video-btn" class="px-3.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-white flex items-center gap-1.5">
                 <i data-lucide="video" class="w-3.5 h-3.5"></i> Video (MP4)
               </button>
               <button id="format-audio-btn" class="px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5">
-                <i data-lucide="music" class="w-3.5 h-3.5"></i> Audio Only (MP3)
+                <i data-lucide="music" class="w-3.5 h-3.5"></i> Audio Only (MP3/M4A)
               </button>
             </div>
           </div>
@@ -124,41 +123,24 @@
           <div class="flex-1 space-y-3 w-full">
             <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YOUTUBE</span>
             <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Media Stream</h3>
-            <p class="text-xs text-emerald-400 flex items-center gap-1">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Stream verified & clean
+            <p id="card-status-desc" class="text-xs text-emerald-400 flex items-center gap-1">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Tracks isolated and ready for merging
             </p>
             <div class="pt-4 flex items-center justify-between border-t border-white/[0.06]">
-              <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video</span>
+              <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video (1080p)</span>
               <button id="download-trigger-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span id="download-btn-text">Download Now</span>
+                <span id="download-btn-text">Merge & Download</span>
               </button>
             </div>
             <div id="progress-box" class="hidden pt-2">
               <div class="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
-                <div id="progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
+                <div id="progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-200"></div>
               </div>
-              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Starting direct file transfer...</p>
+              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Initializing WebAssembly runtime...</p>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Batch Download View -->
-    <div id="view-batch" class="space-y-6 hidden">
-      <div class="glass-panel p-6 rounded-3xl space-y-4">
-        <textarea id="batch-urls-input" rows="5" placeholder="Paste links (one per line)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl p-4 text-xs font-mono text-white focus:outline-none"></textarea>
-        <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/[0.06]">
-          <span id="batch-count-label" class="text-xs text-slate-400">0 links detected</span>
-          <button id="batch-start-btn" class="px-6 py-3 rounded-xl bg-white text-slate-900 font-bold text-xs flex items-center gap-2">
-            <i data-lucide="play" class="w-3.5 h-3.5"></i> Process Batch
-          </button>
-        </div>
-      </div>
-      <div id="batch-table-card" class="glass-panel p-6 rounded-3xl hidden">
-        <h3 class="text-sm font-bold text-white mb-4">Resolved Downloads</h3>
-        <div class="space-y-2.5" id="batch-items-container"></div>
       </div>
     </div>
   </main>
@@ -166,7 +148,7 @@
   <script>
     lucide.createIcons();
 
-    // 3D Canvas Background
+    // 3D Background
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -208,40 +190,26 @@
 
     let currentFormat = 'video';
     let currentPlatform = 'yt';
-    let currentResolvedItem = null;
+    let parsedStreams = null;
 
-    const platforms = {
-      yt: { title: 'YouTube Engine', badge: 'Direct Stream', glow: 'bg-red-600', placeholder: 'Paste YouTube link (Shorts, Watch, Video)...' },
-      insta: { title: 'Instagram Engine', badge: 'Reels & Carousels', glow: 'bg-pink-600', placeholder: 'Paste Instagram Reel or Post link...' },
-      fb: { title: 'Facebook Engine', badge: 'HD Watch & Reels', glow: 'bg-blue-600', placeholder: 'Paste Facebook Video link...' }
-    };
+    // FFmpeg WASM Instance
+    const { FFmpeg } = FFmpegWASM;
+    const { fetchFile, toBlobURL } = FFmpegUtil;
+    let ffmpegInstance = null;
 
-    document.querySelectorAll('.platform-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.platform-tab').forEach(t => t.className = 'platform-tab px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 text-slate-400 hover:text-white');
-        tab.className = 'platform-tab active px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2.5 bg-white/[0.08] text-white';
-        currentPlatform = tab.dataset.platform;
-        const info = platforms[currentPlatform];
-        document.getElementById('platform-title').innerHTML = `${info.title} <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">${info.badge}</span>`;
-        document.getElementById('single-url-input').placeholder = info.placeholder;
-        document.getElementById('ambient-glow').className = `subtle-glow top-[-100px] left-1/2 -translate-x-1/2 ${info.glow} transition-colors duration-700`;
-      });
-    });
+    async function getFFmpeg() {
+      if (!ffmpegInstance) {
+        ffmpegInstance = new FFmpeg();
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpegInstance.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        });
+      }
+      return ffmpegInstance;
+    }
 
-    document.getElementById('mode-single-btn').addEventListener('click', () => {
-      document.getElementById('mode-single-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white';
-      document.getElementById('mode-batch-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white';
-      document.getElementById('view-single').classList.remove('hidden');
-      document.getElementById('view-batch').classList.add('hidden');
-    });
-
-    document.getElementById('mode-batch-btn').addEventListener('click', () => {
-      document.getElementById('mode-batch-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white';
-      document.getElementById('mode-single-btn').className = 'px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white';
-      document.getElementById('view-batch').classList.remove('hidden');
-      document.getElementById('view-single').classList.add('hidden');
-    });
-
+    // Format selection
     const formatVideoBtn = document.getElementById('format-video-btn');
     const formatAudioBtn = document.getElementById('format-audio-btn');
 
@@ -257,142 +225,208 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Resolve media on the server so YouTube's internal API and expiring URLs
-    // are never exposed to browser CORS and redirect rules.
-    async function resolveDirectMedia(rawUrl, isAudio) {
-      const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(rawUrl);
-      const request = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: rawUrl.trim(), audio: isAudio })
-      };
-      let response = await fetch(isYouTube ? '/api/yt' : '/api/resolve', request);
-      if (!response.ok && isYouTube) response = await fetch('/api/resolve', request);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Media extraction failed.');
-      return data;
-    }
+    // Extract raw audio & video tracks via direct client Android manifest
+    async function extractTracks(rawUrl) {
+      const cleanUrl = rawUrl.trim();
+      const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
+      const ytId = ytMatch ? ytMatch[1] : null;
 
-    // Direct Browser Download (Saves straight to local device storage, zero redirects)
-    async function triggerDirectDownload(streamUrl, filename) {
-      const pBox = document.getElementById('progress-box');
-      const pBar = document.getElementById('progress-bar');
-      const pStatus = document.getElementById('progress-status');
+      if (!ytId) throw new Error("Please enter a valid YouTube video or Shorts link.");
 
-      pBox.classList.remove('hidden');
-      pBar.style.width = '30%';
-      pStatus.textContent = 'Connecting to media stream...';
+      let title = "video_download";
+      let thumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
 
       try {
-        const response = await fetch(streamUrl);
-        if (!response.ok) throw new Error();
+        const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
+        if (oe.ok) {
+          const oed = await oe.json();
+          title = oed.title || title;
+        }
+      } catch (_) {}
 
-        pBar.style.width = '70%';
-        pStatus.textContent = 'Writing to local device...';
+      // Official Android API query directly from client browser (uses home/mobile IP)
+      const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoId: ytId,
+          context: {
+            client: {
+              clientName: "ANDROID_TESTSUITE",
+              clientVersion: "1.9",
+              androidSdkVersion: 30,
+              hl: "en",
+              gl: "US"
+            }
+          }
+        })
+      });
 
-        const blob = await response.blob();
-        const localBlobUrl = window.URL.createObjectURL(blob);
+      if (!res.ok) throw new Error("Unable to fetch video data from YouTube.");
 
-        const a = document.createElement('a');
-        a.href = localBlobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+      const data = await res.json();
+      const adaptive = data.streamingData?.adaptiveFormats || [];
+      const combined = data.streamingData?.formats || [];
 
-        pBar.style.width = '100%';
-        pStatus.textContent = 'Download finished!';
+      // Look for highest resolution video stream (MP4 preferred for copy-muxing)
+      const videoTrack = adaptive
+        .filter(f => f.mimeType?.includes("video/mp4") && f.url)
+        .sort((a, b) => (b.height || 0) - (a.height || 0))[0] || 
+        adaptive.filter(f => f.mimeType?.includes("video") && f.url).sort((a,b) => (b.height||0) - (a.height||0))[0];
 
-        setTimeout(() => {
-          window.URL.revokeObjectURL(localBlobUrl);
-          pBox.classList.add('hidden');
-        }, 1500);
-      } catch (error) {
-        pBar.style.width = '0%';
-        pStatus.textContent = error.message || 'Download failed. Analyze the link again.';
+      // Look for highest bitrate audio stream
+      const audioTrack = adaptive
+        .filter(f => f.mimeType?.includes("audio") && f.url)
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+
+      // Progressive combined stream fallback
+      const progressiveTrack = combined.filter(f => f.url && f.mimeType?.includes("mp4"))[0];
+
+      if (!videoTrack && !progressiveTrack) {
+        throw new Error("No usable video streams found for this link.");
       }
+
+      return {
+        title: title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80),
+        thumb,
+        videoUrl: videoTrack?.url || progressiveTrack?.url,
+        audioUrl: audioTrack?.url || null,
+        isCombined: !audioTrack || !!progressiveTrack
+      };
     }
 
-    // Single Link Inspect
+    // Inspect Single Link
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
-      if (!url) return alert('Please enter a valid link');
+      if (!url) return alert("Please enter a valid link.");
 
       inspectBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Analyzing...</span>';
       lucide.createIcons();
 
       try {
-        currentResolvedItem = await resolveDirectMedia(url, currentFormat === 'audio');
+        parsedStreams = await extractTracks(url);
 
-        document.getElementById('card-title').textContent = currentResolvedItem.title;
-        document.getElementById('card-thumb').src = currentResolvedItem.thumb;
-        document.getElementById('card-platform-badge').textContent = currentPlatform.toUpperCase();
-        document.getElementById('card-format-label').textContent = currentFormat === 'video' ? 'MP4 Video' : 'MP3 Audio';
+        document.getElementById('card-title').textContent = parsedStreams.title;
+        document.getElementById('card-thumb').src = parsedStreams.thumb;
+        document.getElementById('card-platform-badge').textContent = 'YOUTUBE';
+        document.getElementById('card-format-label').textContent = currentFormat === 'video' ? 'MP4 Video (Merged)' : 'M4A Audio Track';
         document.getElementById('media-card').classList.remove('hidden');
       } catch (err) {
-        alert(err.message || 'Stream extraction failed. Please retry.');
+        alert(err.message || "Failed to analyze link.");
       } finally {
         inspectBtn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i><span>Analyze Link</span>';
         lucide.createIcons();
       }
     });
 
-    // Single Download Trigger
+    // Muxing and File Download Trigger
     const downloadTriggerBtn = document.getElementById('download-trigger-btn');
     downloadTriggerBtn.addEventListener('click', async () => {
-      if (!currentResolvedItem || !currentResolvedItem.downloadUrl) return;
+      if (!parsedStreams) return;
 
-      downloadTriggerBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
-      lucide.createIcons();
+      const pBox = document.getElementById('progress-box');
+      const pBar = document.getElementById('progress-bar');
+      const pStatus = document.getElementById('progress-status');
 
-      await triggerDirectDownload(currentResolvedItem.downloadUrl, currentResolvedItem.filename);
+      pBox.classList.remove('hidden');
+      pBar.style.width = '10%';
+      downloadTriggerBtn.disabled = true;
 
-      downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
-      lucide.createIcons();
-    });
+      try {
+        if (currentFormat === 'audio') {
+          // Audio only download: no muxing required
+          pStatus.textContent = 'Fetching audio track...';
+          pBar.style.width = '50%';
 
-    // Batch Multi-Queue
-    const batchInput = document.getElementById('batch-urls-input');
-    const batchCount = document.getElementById('batch-count-label');
-    const batchStartBtn = document.getElementById('batch-start-btn');
-    const batchTableCard = document.getElementById('batch-table-card');
-    const batchItemsContainer = document.getElementById('batch-items-container');
+          const aData = await fetchFile(parsedStreams.audioUrl);
+          const aBlob = new Blob([aData.buffer], { type: 'audio/mp4' });
+          const aUrl = URL.createObjectURL(aBlob);
 
-    batchInput.addEventListener('input', () => {
-      const count = batchInput.value.split('\n').filter(s => s.trim().length > 0).length;
-      batchCount.textContent = `${count} link${count === 1 ? '' : 's'} detected`;
-    });
+          const a = document.createElement('a');
+          a.href = aUrl;
+          a.download = `${parsedStreams.title}.m4a`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(aUrl);
+        } else {
+          // Video format: if already combined, download directly; otherwise merge via WASM
+          if (parsedStreams.isCombined || !parsedStreams.audioUrl) {
+            pStatus.textContent = 'Downloading combined file...';
+            pBar.style.width = '70%';
 
-    batchStartBtn.addEventListener('click', async () => {
-      const urls = batchInput.value.split('\n').map(s => s.trim()).filter(Boolean);
-      if (urls.length === 0) return alert('Paste at least one URL');
+            const vData = await fetchFile(parsedStreams.videoUrl);
+            const vBlob = new Blob([vData.buffer], { type: 'video/mp4' });
+            const vUrl = URL.createObjectURL(vBlob);
 
-      batchTableCard.classList.remove('hidden');
-      batchItemsContainer.innerHTML = '';
-      const isAudio = (currentFormat === 'audio');
+            const a = document.createElement('a');
+            a.href = vUrl;
+            a.download = `${parsedStreams.title}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(vUrl);
+          } else {
+            // Execute In-Browser FFmpeg Mux
+            pStatus.textContent = 'Loading WebAssembly FFmpeg core...';
+            pBar.style.width = '25%';
+            const ffmpeg = await getFFmpeg();
 
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        const row = document.createElement('div');
-        row.className = 'glass-panel p-3.5 rounded-2xl flex items-center justify-between text-xs';
-        row.innerHTML = `
-          <span class="truncate max-w-md font-mono text-slate-300">${url}</span>
-          <span id="batch-status-${i}" class="text-amber-400 flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Resolving</span>
-        `;
-        batchItemsContainer.appendChild(row);
-        lucide.createIcons();
+            pStatus.textContent = 'Buffering video and audio streams...';
+            pBar.style.width = '50%';
+            const [vBuffer, aBuffer] = await Promise.all([
+              fetchFile(parsedStreams.videoUrl),
+              fetchFile(parsedStreams.audioUrl)
+            ]);
 
-        try {
-          const item = await resolveDirectMedia(url, isAudio);
-          const s = document.getElementById(`batch-status-${i}`);
-          s.className = 'text-emerald-400 flex items-center gap-2';
-          s.innerHTML = `<button onclick="triggerDirectDownload('${item.downloadUrl}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
-        } catch (_) {
-          const s = document.getElementById(`batch-status-${i}`);
-          s.className = 'text-rose-400';
-          s.textContent = 'Failed';
+            pStatus.textContent = 'Writing streams to virtual disk...';
+            pBar.style.width = '70%';
+            await ffmpeg.writeFile('in_v.mp4', vBuffer);
+            await ffmpeg.writeFile('in_a.mp4', aBuffer);
+
+            pStatus.textContent = 'Muxing MP4 stream (-c copy)...';
+            pBar.style.width = '85%';
+
+            // Fast stream-copy multiplexing without re-encoding
+            await ffmpeg.exec([
+              '-i', 'in_v.mp4',
+              '-i', 'in_a.mp4',
+              '-c', 'copy',
+              '-movflags', '+faststart',
+              'final.mp4'
+            ]);
+
+            pStatus.textContent = 'Finalizing download...';
+            pBar.style.width = '95%';
+            const outputData = await ffmpeg.readFile('final.mp4');
+
+            // Cleanup virtual filesystem
+            await ffmpeg.deleteFile('in_v.mp4');
+            await ffmpeg.deleteFile('in_a.mp4');
+            await ffmpeg.deleteFile('final.mp4');
+
+            const outBlob = new Blob([outputData.buffer], { type: 'video/mp4' });
+            const outUrl = URL.createObjectURL(outBlob);
+
+            const dl = document.createElement('a');
+            dl.href = outUrl;
+            dl.download = `${parsedStreams.title}.mp4`;
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+            URL.revokeObjectURL(outUrl);
+          }
         }
+
+        pBar.style.width = '100%';
+        pStatus.textContent = 'Download completed!';
+        setTimeout(() => pBox.classList.add('hidden'), 2000);
+      } catch (err) {
+        alert("Muxing error: " + (err.message || err));
+        pBox.classList.add('hidden');
+      } finally {
+        downloadTriggerBtn.disabled = false;
       }
     });
   </script>
