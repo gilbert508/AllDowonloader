@@ -1,11 +1,21 @@
 {
-  "framework": null,
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 30
-    },
-    "api/*.py": {
-      "maxDuration": 30
+  "version": 2,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        }
+      ]
     }
-  }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
