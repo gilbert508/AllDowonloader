@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   url = url.trim();
 
-  // Normalize YouTube link and extract ID
+  // Strip tracking parameters like ?feature=share
   const ytMatch = url.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
   const ytId = ytMatch ? ytMatch[1] : null;
 
@@ -31,35 +31,34 @@ export default async function handler(req, res) {
   }
 
   const safeTitle = title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
-  const cleanTargetUrl = ytId ? `https://www.youtube.com/watch?v=${ytId}` : url;
+  const targetUrl = ytId ? `https://www.youtube.com/watch?v=${ytId}` : url;
 
-  // Multi-Node Cobalt instances with fallback routing
-  const COBALT_SERVERS = [
+  // 1. Primary Engine: Active Cobalt Community Cluster (v10 payload)
+  const COBALT_INSTANCES = [
     "https://cobalt-api.kwiatekmiki.com",
     "https://cobalt.hyper.lol",
     "https://api.wuk.sh"
   ];
 
-  const payload = {
-    url: cleanTargetUrl,
+  const cobaltPayload = {
+    url: targetUrl,
     downloadMode: isAudio ? "audio" : "auto",
     videoQuality: "1080",
     audioFormat: "mp3",
-    filenameStyle: "basic",
-    youtubeVideoCodec: "h264"
+    filenameStyle: "basic"
   };
 
-  for (const server of COBALT_SERVERS) {
+  for (const host of COBALT_INSTANCES) {
     try {
-      const response = await fetch(server, {
+      const response = await fetch(host, {
         method: "POST",
         headers: {
           "Accept": "application/json",
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(4000)
+        body: JSON.stringify(cobaltPayload),
+        signal: AbortSignal.timeout(4500)
       });
 
       if (response.ok) {
@@ -80,47 +79,47 @@ export default async function handler(req, res) {
     }
   }
 
-  // Backup Engine: High-reliability Piped network for YouTube
+  // 2. Secondary Engine: Piped Direct CDN Streams (for YouTube)
   if (ytId) {
-    const PIPED_SERVERS = [
+    const PIPED_INSTANCES = [
       "https://pipedapi.kavin.rocks",
       "https://api.piped.privacydev.net",
       "https://pipedapi.drgns.space"
     ];
 
-    for (const host of PIPED_SERVERS) {
+    for (const host of PIPED_INSTANCES) {
       try {
         const pipedRes = await fetch(`${host}/streams/${ytId}`, {
-          signal: AbortSignal.timeout(4000)
+          signal: AbortSignal.timeout(4500)
         });
 
         if (pipedRes.ok) {
           const pipedData = await pipedRes.json();
-          const videoTitle = (pipedData.title || safeTitle).replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
+          const streamTitle = (pipedData.title || safeTitle).replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
 
           if (isAudio) {
-            const audioStreams = (pipedData.audioStreams || []).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-            if (audioStreams.length > 0) {
+            const audios = (pipedData.audioStreams || []).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+            if (audios.length > 0) {
               return res.status(200).json({
                 success: true,
-                title: videoTitle,
+                title: streamTitle,
                 thumb: thumb,
-                url: audioStreams[0].url,
-                filename: `${videoTitle}.mp3`
+                url: audios[0].url,
+                filename: `${streamTitle}.mp3`
               });
             }
           } else {
-            const videoStreams = (pipedData.videoStreams || [])
+            const videos = (pipedData.videoStreams || [])
               .filter(s => s.format === 'MPEG_4' || s.mimeType?.includes('mp4'))
               .sort((a, b) => (b.height || 0) - (a.height || 0));
 
-            if (videoStreams.length > 0) {
+            if (videos.length > 0) {
               return res.status(200).json({
                 success: true,
-                title: videoTitle,
+                title: streamTitle,
                 thumb: thumb,
-                url: videoStreams[0].url,
-                filename: `${videoTitle}.mp4`
+                url: videos[0].url,
+                filename: `${streamTitle}.mp4`
               });
             }
           }
@@ -132,6 +131,6 @@ export default async function handler(req, res) {
   }
 
   return res.status(500).json({
-    error: "Media servers could not extract this video stream. Please check link validity and try again."
+    error: "Extraction nodes are currently busy. Please try again in a few moments."
   });
 }
