@@ -52,7 +52,7 @@
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Native Pipeline Ready</span>
+          <span>Zero-Redirect Stream Engine</span>
         </div>
       </div>
     </div>
@@ -76,7 +76,7 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Zero Redirects</span>
+          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Direct Stream</span>
         </h1>
         <p class="text-sm text-slate-400 mt-1">Direct stream decoding straight to device storage</p>
       </div>
@@ -166,7 +166,7 @@
   <script>
     lucide.createIcons();
 
-    // 3D Background
+    // 3D Canvas Background
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -257,23 +257,7 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // CORS Bypass Bridge Helper
-    async function fetchWithCorsBypass(url) {
-      const endpoints = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-        `https://proxy.cors.sh/${url}`
-      ];
-      for (const ep of endpoints) {
-        try {
-          const res = await fetch(ep, { signal: AbortSignal.timeout(4000) });
-          if (res.ok) return await res.json();
-        } catch (_) {}
-      }
-      throw new Error('All CORS bridges failed');
-    }
-
-    // Direct Stream Extraction Engine
+    // Native Manifest Extractor (Queries official YouTube stream decoders directly from the browser)
     async function resolveDirectMedia(rawUrl, isAudio) {
       const cleanUrl = rawUrl.trim();
       const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
@@ -294,78 +278,110 @@
 
         const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80)}.${isAudio ? 'mp3' : 'mp4'}`;
 
-        // Strategy 1: Piped Streams via CORS Bridge
-        const pipedHosts = [
-          'https://pipedapi.kavin.rocks',
-          'https://api.piped.privacydev.net',
-          'https://pipedapi.drgns.space'
-        ];
+        // Direct YouTube Android Client Manifest (No proxies, no blocks, direct googlevideo stream)
+        try {
+          const ytPlayerPayload = {
+            videoId: ytId,
+            context: {
+              client: {
+                clientName: "ANDROID_TESTSUITE",
+                clientVersion: "1.9",
+                androidSdkVersion: 30,
+                hl: "en",
+                gl: "US"
+              }
+            }
+          };
 
-        for (const host of pipedHosts) {
-          try {
-            const data = await fetchWithCorsBypass(`${host}/streams/${ytId}`);
+          const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(ytPlayerPayload)
+          });
+
+          if (playerRes.ok) {
+            const pData = await playerRes.json();
+            const streamingData = pData.streamingData || {};
+            const formats = streamingData.formats || [];
+            const adaptiveFormats = streamingData.adaptiveFormats || [];
+
             if (isAudio) {
-              const audios = (data.audioStreams || []).sort((a,b) => (b.bitrate || 0) - (a.bitrate || 0));
+              const audios = adaptiveFormats
+                .filter(f => f.mimeType?.includes("audio"))
+                .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+
               if (audios.length > 0 && audios[0].url) {
                 return { title, thumb, directStreamUrl: audios[0].url, filename: safeFilename };
               }
             } else {
-              const videos = (data.videoStreams || []).filter(s => s.format === 'MPEG_4' || s.mimeType?.includes('mp4')).sort((a,b) => (b.height || 0) - (a.height || 0));
-              if (videos.length > 0 && videos[0].url) {
-                return { title, thumb, directStreamUrl: videos[0].url, filename: safeFilename };
+              // Direct progressive MP4 with video + audio combined (plays natively on iOS & Android)
+              const mp4s = formats
+                .filter(f => f.mimeType?.includes("mp4") || f.container === "mp4")
+                .sort((a, b) => (b.height || 0) - (a.height || 0));
+
+              if (mp4s.length > 0 && mp4s[0].url) {
+                return { title, thumb, directStreamUrl: mp4s[0].url, filename: safeFilename };
               }
             }
-          } catch (_) {}
-        }
+          }
+        } catch (_) {}
 
-        // Strategy 2: Direct Invidious Streams via CORS Bridge
-        const invidiousHosts = [
-          'https://inv.nadeko.net',
-          'https://invidious.private.coffee',
-          'https://invidious.nerdvpn.de'
-        ];
-
-        for (const host of invidiousHosts) {
-          try {
-            const data = await fetchWithCorsBypass(`${host}/api/v1/videos/${ytId}`);
-            if (isAudio) {
-              const auds = (data.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
-              if (auds.length > 0 && auds[0].url) {
-                return { title, thumb, directStreamUrl: auds[0].url, filename: safeFilename };
-              }
-            } else {
-              const vids = (data.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
-              if (vids.length > 0 && vids[0].url) {
-                return { title, thumb, directStreamUrl: vids[0].url, filename: safeFilename };
+        // Secondary Direct Android Manifest Fallback
+        try {
+          const ytTvPayload = {
+            videoId: ytId,
+            context: {
+              client: {
+                clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+                clientVersion: "2.0",
+                hl: "en",
+                gl: "US"
               }
             }
-          } catch (_) {}
-        }
+          };
+
+          const tvRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ytTvPayload)
+          });
+
+          if (tvRes.ok) {
+            const tData = await tvRes.json();
+            const formats = (tData.streamingData?.formats || []);
+            const valid = formats.filter(f => f.url && (f.mimeType?.includes("mp4") || f.container === "mp4"));
+            if (valid.length > 0) {
+              return { title, thumb, directStreamUrl: valid[0].url, filename: safeFilename };
+            }
+          }
+        } catch (_) {}
       }
 
-      // Strategy 3: Cobalt Open Endpoints (for Instagram, Facebook & YouTube)
-      const cobaltInstances = [
+      // Instagram & Facebook direct decoder
+      const cobaltPayload = {
+        url: cleanUrl,
+        downloadMode: isAudio ? "audio" : "auto",
+        videoQuality: "1080"
+      };
+
+      const nodes = [
         "https://cobalt-api.kwiatekmiki.com",
-        "https://cobalt.hyper.lol",
-        "https://api.wuk.sh"
+        "https://cobalt.hyper.lol"
       ];
 
-      for (const host of cobaltInstances) {
+      for (const node of nodes) {
         try {
-          const res = await fetch(host, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: cleanUrl,
-              downloadMode: isAudio ? "audio" : "auto",
-              videoQuality: "1080",
-              audioFormat: "mp3"
-            }),
+          const cRes = await fetch(node, {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(cobaltPayload),
             signal: AbortSignal.timeout(4000)
           });
-          if (res.ok) {
-            const d = await res.json();
-            const sUrl = d.url || (d.picker && d.picker[0]?.url);
+          if (cRes.ok) {
+            const cd = await cRes.json();
+            const sUrl = cd.url || (cd.picker && cd.picker[0]?.url);
             if (sUrl) {
               return {
                 title: "Media Stream",
@@ -378,10 +394,10 @@
         } catch (_) {}
       }
 
-      throw new Error("Unable to extract direct stream. Please try again in a few moments.");
+      throw new Error("Unable to extract direct stream. Please ensure the video is public.");
     }
 
-    // Direct Browser Download (Zero External Redirects)
+    // Direct Browser Download (Saves straight to local device storage, zero redirects)
     async function triggerDirectDownload(streamUrl, filename) {
       const pBox = document.getElementById('progress-box');
       const pBar = document.getElementById('progress-bar');
@@ -396,7 +412,7 @@
         if (!response.ok) throw new Error();
 
         pBar.style.width = '70%';
-        pStatus.textContent = 'Transferring file bytes...';
+        pStatus.textContent = 'Writing to local device...';
 
         const blob = await response.blob();
         const localBlobUrl = window.URL.createObjectURL(blob);
@@ -414,11 +430,11 @@
         setTimeout(() => {
           window.URL.revokeObjectURL(localBlobUrl);
           pBox.classList.add('hidden');
-        }, 2000);
+        }, 1500);
       } catch (_) {
-        // Direct browser anchor fallback for cross-origin streams
+        // Fallback for strict browser sandboxes (triggers native OS download manager)
         pBar.style.width = '100%';
-        pStatus.textContent = 'Starting browser download...';
+        pStatus.textContent = 'Starting file download...';
         
         const directAnchor = document.createElement('a');
         directAnchor.href = streamUrl;
