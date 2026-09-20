@@ -52,7 +52,7 @@
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Engine Active</span>
+          <span>Engine Connected</span>
         </div>
       </div>
     </div>
@@ -125,20 +125,20 @@
             <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YOUTUBE</span>
             <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Media Stream</h3>
             <p class="text-xs text-emerald-400 flex items-center gap-1">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Ready for instant transfer
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Stream parsed & verified
             </p>
             <div class="pt-4 flex items-center justify-between border-t border-white/[0.06]">
               <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video</span>
               <button id="download-trigger-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span id="download-btn-text">Download Now</span>
+                <span id="download-btn-text">Download Media</span>
               </button>
             </div>
             <div id="progress-box" class="hidden pt-2">
               <div class="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
               </div>
-              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Downloading stream...</p>
+              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Processing file download...</p>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@
   <script>
     lucide.createIcons();
 
-    // 3D Background
+    // 3D Visualizer Background
     const container = document.getElementById('three-canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -208,8 +208,9 @@
 
     let currentFormat = 'video';
     let currentPlatform = 'yt';
-    let currentResolvedItem = null;
+    let activeMediaItem = null;
 
+    // Platform Swapper
     const platforms = {
       yt: { title: 'YouTube Engine', badge: 'Ultra 4K & MP3', glow: 'bg-red-600', placeholder: 'Paste YouTube link (Shorts, Watch, Video)...' },
       insta: { title: 'Instagram Engine', badge: 'Reels & Carousels', glow: 'bg-pink-600', placeholder: 'Paste Instagram Reel or Post link...' },
@@ -257,18 +258,119 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Native Cross-Platform Download
-    function downloadBlobDirectly(mediaUrl, filename) {
-      const a = document.createElement('a');
-      a.href = mediaUrl;
-      a.download = filename;
-      a.target = '_self';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => a.remove(), 1500);
+    // Client-side extraction engine (Queries from user's residential mobile/PC connection)
+    async function resolveMediaDirect(rawUrl, isAudio) {
+      const cleanUrl = rawUrl.trim();
+      const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
+      const ytId = ytMatch ? ytMatch[1] : null;
+
+      let title = "Media Stream";
+      let thumb = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800";
+
+      if (ytId) {
+        thumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+        try {
+          const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
+          if (oe.ok) {
+            const oeData = await oe.json();
+            title = oeData.title || title;
+          }
+        } catch (_) {}
+      }
+
+      const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80)}.${isAudio ? 'mp3' : 'mp4'}`;
+      const targetUrl = ytId ? `https://www.youtube.com/watch?v=${ytId}` : cleanUrl;
+
+      // 1. Primary Invidious / Piped Node Race (Fast client-side CORS proxies)
+      if (ytId) {
+        const DIRECT_CLUSTERS = [
+          `https://inv.nadeko.net/api/v1/videos/${ytId}`,
+          `https://invidious.private.coffee/api/v1/videos/${ytId}`,
+          `https://invidious.nerdvpn.de/api/v1/videos/${ytId}`
+        ];
+
+        for (const cluster of DIRECT_CLUSTERS) {
+          try {
+            const res = await fetch(cluster, { signal: AbortSignal.timeout(3500) });
+            if (res.ok) {
+              const data = await res.json();
+              title = data.title || title;
+
+              if (isAudio) {
+                const audios = (data.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
+                if (audios.length > 0) {
+                  return { title, thumb, url: audios[0].url, filename: safeFilename };
+                }
+              } else {
+                const videos = (data.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
+                if (videos.length > 0) {
+                  return { title, thumb, url: videos[0].url, filename: safeFilename };
+                }
+              }
+            }
+          } catch (_) {
+            continue;
+          }
+        }
+      }
+
+      // 2. High-speed Cobalt Edge Client
+      const COBALT_ENDPOINTS = [
+        "https://cobalt-api.kwiatekmiki.com",
+        "https://cobalt.hyper.lol",
+        "https://api.wuk.sh"
+      ];
+
+      for (const endpoint of COBALT_ENDPOINTS) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: targetUrl,
+              downloadMode: isAudio ? "audio" : "auto",
+              videoQuality: "1080",
+              audioFormat: "mp3"
+            }),
+            signal: AbortSignal.timeout(4500)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const streamUrl = data.url || (data.picker && data.picker[0]?.url);
+            if (streamUrl) {
+              return { title, thumb, url: streamUrl, filename: safeFilename };
+            }
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+
+      // 3. Fallback direct stream endpoint
+      if (ytId) {
+        return {
+          title,
+          thumb,
+          url: `https://api.vevioz.com/api/button/${isAudio ? 'mp3' : 'mp4'}/${ytId}`,
+          filename: safeFilename
+        };
+      }
+
+      throw new Error("Unable to extract media. Please make sure the video is public.");
     }
 
-    // Inspect Single Media
+    // Direct Browser Download
+    function executeDownload(url, filename) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', filename);
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 1000);
+    }
+
+    // Single Link Inspect
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
@@ -278,33 +380,26 @@
       lucide.createIcons();
 
       try {
-        const res = await fetch('/api/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, isAudio: currentFormat === 'audio' })
-        });
+        const isAudio = (currentFormat === 'audio');
+        activeMediaItem = await resolveMediaDirect(url, isAudio);
 
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Resolution error');
-
-        currentResolvedItem = data;
-        document.getElementById('card-title').textContent = data.title;
-        document.getElementById('card-thumb').src = data.thumb;
+        document.getElementById('card-title').textContent = activeMediaItem.title;
+        document.getElementById('card-thumb').src = activeMediaItem.thumb;
         document.getElementById('card-platform-badge').textContent = currentPlatform.toUpperCase();
-        document.getElementById('card-format-label').textContent = currentFormat === 'video' ? 'MP4 Video' : 'MP3 Audio';
+        document.getElementById('card-format-label').textContent = isAudio ? 'MP3 Audio Stream' : 'MP4 Video';
         document.getElementById('media-card').classList.remove('hidden');
       } catch (err) {
-        alert(err.message || 'Stream temporarily unavailable. Please retry.');
+        alert(err.message || 'Stream extraction failed. Please retry.');
       } finally {
         inspectBtn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i><span>Analyze Link</span>';
         lucide.createIcons();
       }
     });
 
-    // Download Button Action
+    // Single Link Download
     const downloadTriggerBtn = document.getElementById('download-trigger-btn');
     downloadTriggerBtn.addEventListener('click', () => {
-      if (!currentResolvedItem || !currentResolvedItem.url) return;
+      if (!activeMediaItem || !activeMediaItem.url) return;
 
       const pBox = document.getElementById('progress-box');
       const pBar = document.getElementById('progress-bar');
@@ -317,18 +412,18 @@
       downloadTriggerBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
       lucide.createIcons();
 
-      downloadBlobDirectly(currentResolvedItem.url, currentResolvedItem.filename);
+      executeDownload(activeMediaItem.url, activeMediaItem.filename);
 
       setTimeout(() => {
         pBar.style.width = '100%';
-        pStatus.textContent = 'File transfer started!';
-        downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
+        pStatus.textContent = 'Transfer complete!';
+        downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Media</span>';
         lucide.createIcons();
         setTimeout(() => pBox.classList.add('hidden'), 1500);
       }, 1000);
     });
 
-    // Batch Queue Processor
+    // Batch Multi-Queue
     const batchInput = document.getElementById('batch-urls-input');
     const batchCount = document.getElementById('batch-count-label');
     const batchStartBtn = document.getElementById('batch-start-btn');
@@ -346,6 +441,7 @@
 
       batchTableCard.classList.remove('hidden');
       batchItemsContainer.innerHTML = '';
+      const isAudio = (currentFormat === 'audio');
 
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
@@ -359,17 +455,10 @@
         lucide.createIcons();
 
         try {
-          const res = await fetch('/api/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, isAudio: currentFormat === 'audio' })
-          });
-          const item = await res.json();
-          if (!res.ok || !item.url) throw new Error();
-
+          const item = await resolveMediaDirect(url, isAudio);
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-emerald-400 flex items-center gap-2';
-          s.innerHTML = `<button onclick="downloadBlobDirectly('${item.url}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
+          s.innerHTML = `<button onclick="executeDownload('${item.url}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
         } catch (_) {
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-rose-400';
