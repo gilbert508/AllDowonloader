@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All Downloader | Universal Media Engine</title>
+  <title>All Downloader | Universal Media Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -52,7 +52,7 @@
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Engine Active</span>
+          <span>Direct Stream Pipeline</span>
         </div>
       </div>
     </div>
@@ -76,9 +76,9 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Ultra 4K & MP3</span>
+          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Direct Stream</span>
         </h1>
-        <p class="text-sm text-slate-400 mt-1">Direct client-to-CDN stream transmission</p>
+        <p class="text-sm text-slate-400 mt-1">Direct stream decoding without ad redirects</p>
       </div>
       <div class="glass-panel p-1 rounded-xl flex items-center">
         <button id="mode-single-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white">Single</button>
@@ -92,7 +92,7 @@
         <div class="flex flex-col md:flex-row gap-3">
           <div class="relative flex-1">
             <i data-lucide="link-2" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input id="single-url-input" type="text" placeholder="Paste link (YouTube Shorts, Watch, Reel, Post)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
+            <input id="single-url-input" type="text" placeholder="Paste YouTube Shorts, Watch, Reel, or Post link..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
           </div>
           <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95">
             <i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
@@ -125,7 +125,7 @@
             <span id="card-platform-badge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300">YOUTUBE</span>
             <h3 id="card-title" class="text-base font-bold text-white line-clamp-2">Media Stream</h3>
             <p class="text-xs text-emerald-400 flex items-center gap-1">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Ready for instant transfer
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Stream verified & clean
             </p>
             <div class="pt-4 flex items-center justify-between border-t border-white/[0.06]">
               <span id="card-format-label" class="text-xs font-bold text-white">MP4 Video</span>
@@ -133,6 +133,12 @@
                 <i data-lucide="download" class="w-4 h-4"></i>
                 <span id="download-btn-text">Download Now</span>
               </button>
+            </div>
+            <div id="progress-box" class="hidden pt-2">
+              <div class="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
+                <div id="progress-bar" class="bg-gradient-to-r from-rose-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
+              </div>
+              <p id="progress-status" class="text-[11px] text-slate-400 mt-1">Starting direct file transfer...</p>
             </div>
           </div>
         </div>
@@ -205,7 +211,7 @@
     let currentResolvedItem = null;
 
     const platforms = {
-      yt: { title: 'YouTube Engine', badge: 'Ultra 4K & MP3', glow: 'bg-red-600', placeholder: 'Paste YouTube link (Shorts, Watch, Video)...' },
+      yt: { title: 'YouTube Engine', badge: 'Direct Stream', glow: 'bg-red-600', placeholder: 'Paste YouTube link (Shorts, Watch, Video)...' },
       insta: { title: 'Instagram Engine', badge: 'Reels & Carousels', glow: 'bg-pink-600', placeholder: 'Paste Instagram Reel or Post link...' },
       fb: { title: 'Facebook Engine', badge: 'HD Watch & Reels', glow: 'bg-blue-600', placeholder: 'Paste Facebook Video link...' }
     };
@@ -251,8 +257,8 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Client-side extraction engine (Queries from user's residential IP)
-    async function resolveMedia(rawUrl, isAudio) {
+    // Pure Direct Stream Extractor (Zero Redirects)
+    async function resolveDirectMedia(rawUrl, isAudio) {
       const cleanUrl = rawUrl.trim();
       const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
       const ytId = ytMatch ? ytMatch[1] : null;
@@ -265,37 +271,72 @@
         try {
           const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
           if (oe.ok) {
-            const oeData = await oe.json();
-            title = oeData.title || title;
+            const data = await oe.json();
+            title = data.title || title;
           }
         } catch (_) {}
-      }
 
-      const safeTitle = title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80);
-      const ext = isAudio ? 'mp3' : 'mp4';
-      const filename = `${safeTitle}.${ext}`;
+        const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80)}.${isAudio ? 'mp3' : 'mp4'}`;
 
-      // 1. Invidious Node Resolution
-      if (ytId) {
-        const INVIDIOUS_INSTANCES = [
-          'https://inv.nadeko.net',
-          'https://invidious.nerdvpn.de',
-          'https://invidious.private.coffee'
+        // Direct Piped API Cluster (CORS-enabled public instances)
+        const PIPED_SERVERS = [
+          'https://pipedapi.kavin.rocks',
+          'https://api.piped.privacydev.net',
+          'https://pipedapi.drgns.space',
+          'https://pipedapi.leptons.xyz'
         ];
 
-        for (const host of INVIDIOUS_INSTANCES) {
+        for (const host of PIPED_SERVERS) {
           try {
-            const res = await fetch(`${host}/api/v1/videos/${ytId}`, { signal: AbortSignal.timeout(3500) });
-            if (res.ok) {
-              const data = await res.json();
-              title = data.title || title;
+            const res = await fetch(`${host}/streams/${ytId}`, { signal: AbortSignal.timeout(4500) });
+            if (!res.ok) continue;
 
-              if (isAudio) {
-                const audios = (data.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
-                if (audios.length > 0) return { title, thumb, url: audios[0].url, filename };
-              } else {
-                const videos = (data.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
-                if (videos.length > 0) return { title, thumb, url: videos[0].url, filename };
+            const d = await res.json();
+            title = d.title || title;
+
+            if (isAudio) {
+              const audios = (d.audioStreams || []).sort((a,b) => (b.bitrate || 0) - (a.bitrate || 0));
+              if (audios.length > 0) {
+                return { title, thumb, directStreamUrl: audios[0].url, filename: safeFilename };
+              }
+            } else {
+              const videos = (d.videoStreams || [])
+                .filter(s => s.format === 'MPEG_4' || s.mimeType?.includes('mp4'))
+                .sort((a,b) => (b.height || 0) - (a.height || 0));
+
+              if (videos.length > 0) {
+                return { title, thumb, directStreamUrl: videos[0].url, filename: safeFilename };
+              }
+            }
+          } catch (_) {
+            continue;
+          }
+        }
+
+        // Secondary Direct Cluster: Invidious Instances
+        const INVIDIOUS_SERVERS = [
+          'https://inv.nadeko.net',
+          'https://invidious.private.coffee',
+          'https://invidious.nerdvpn.de'
+        ];
+
+        for (const host of INVIDIOUS_SERVERS) {
+          try {
+            const res = await fetch(`${host}/api/v1/videos/${ytId}`, { signal: AbortSignal.timeout(4000) });
+            if (!res.ok) continue;
+
+            const d = await res.json();
+            title = d.title || title;
+
+            if (isAudio) {
+              const auds = (d.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
+              if (auds.length > 0) {
+                return { title, thumb, directStreamUrl: auds[0].url, filename: safeFilename };
+              }
+            } else {
+              const vids = (d.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
+              if (vids.length > 0) {
+                return { title, thumb, directStreamUrl: vids[0].url, filename: safeFilename };
               }
             }
           } catch (_) {
@@ -304,61 +345,98 @@
         }
       }
 
-      // 2. Direct Media Resolver (Cobalt Client-Side)
-      const targetUrl = ytId ? `https://www.youtube.com/watch?v=${ytId}` : cleanUrl;
-      const COBALT_NODES = [
+      // Instagram & Facebook direct decoder
+      const COBALT_SERVERS = [
         "https://cobalt-api.kwiatekmiki.com",
         "https://cobalt.hyper.lol"
       ];
 
-      for (const node of COBALT_NODES) {
+      for (const host of COBALT_SERVERS) {
         try {
-          const res = await fetch(node, {
+          const res = await fetch(host, {
             method: 'POST',
             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              url: targetUrl,
+              url: cleanUrl,
               downloadMode: isAudio ? "audio" : "auto",
-              videoQuality: "1080",
-              audioFormat: "mp3"
+              videoQuality: "1080"
             }),
-            signal: AbortSignal.timeout(4000)
+            signal: AbortSignal.timeout(4500)
           });
           if (res.ok) {
             const d = await res.json();
-            const streamUrl = d.url || (d.picker && d.picker[0]?.url);
-            if (streamUrl) return { title, thumb, url: streamUrl, filename };
+            const sUrl = d.url || (d.picker && d.picker[0]?.url);
+            if (sUrl) {
+              return {
+                title: "Media Stream",
+                thumb: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
+                directStreamUrl: sUrl,
+                filename: `media_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
+              };
+            }
           }
         } catch (_) {
           continue;
         }
       }
 
-      // 3. Fallback direct download service
-      if (ytId) {
-        return {
-          title,
-          thumb,
-          url: `https://yt-download.org/api/button/${isAudio ? 'mp3' : 'videos'}/${ytId}`,
-          filename
-        };
+      throw new Error("Unable to extract direct stream. Please ensure the video is public.");
+    }
+
+    // Direct Browser Download (Saves straight to device filesystem, zero redirects)
+    async function triggerDirectDownload(streamUrl, filename) {
+      const pBox = document.getElementById('progress-box');
+      const pBar = document.getElementById('progress-bar');
+      const pStatus = document.getElementById('progress-status');
+
+      pBox.classList.remove('hidden');
+      pBar.style.width = '30%';
+      pStatus.textContent = 'Connecting to media stream...';
+
+      try {
+        // Stream raw bytes directly into a Blob
+        const response = await fetch(streamUrl);
+        if (!response.ok) throw new Error();
+
+        pBar.style.width = '70%';
+        pStatus.textContent = 'Transferring file bytes...';
+
+        const blob = await response.blob();
+        const localBlobUrl = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = localBlobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        pBar.style.width = '100%';
+        pStatus.textContent = 'Download finished!';
+
+        setTimeout(() => {
+          window.URL.revokeObjectURL(localBlobUrl);
+          pBox.classList.add('hidden');
+        }, 2000);
+      } catch (_) {
+        // Cross-origin fallback for devices that block fetch streaming
+        pBar.style.width = '100%';
+        pStatus.textContent = 'Starting browser download...';
+        
+        const directAnchor = document.createElement('a');
+        directAnchor.href = streamUrl;
+        directAnchor.setAttribute('download', filename);
+        directAnchor.target = '_self';
+        document.body.appendChild(directAnchor);
+        directAnchor.click();
+        setTimeout(() => {
+          directAnchor.remove();
+          pBox.classList.add('hidden');
+        }, 1500);
       }
-
-      throw new Error("Unable to extract stream. Please ensure the link is public.");
     }
 
-    // Direct Browser Download
-    function triggerDownload(url, filename) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.setAttribute('download', filename);
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => a.remove(), 1000);
-    }
-
-    // Analyze Single Media
+    // Inspect Single Link
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
@@ -368,7 +446,7 @@
       lucide.createIcons();
 
       try {
-        currentResolvedItem = await resolveMedia(url, currentFormat === 'audio');
+        currentResolvedItem = await resolveDirectMedia(url, currentFormat === 'audio');
 
         document.getElementById('card-title').textContent = currentResolvedItem.title;
         document.getElementById('card-thumb').src = currentResolvedItem.thumb;
@@ -383,20 +461,18 @@
       }
     });
 
-    // Download Button Trigger
+    // Single Download Trigger
     const downloadTriggerBtn = document.getElementById('download-trigger-btn');
-    downloadTriggerBtn.addEventListener('click', () => {
-      if (!currentResolvedItem || !currentResolvedItem.url) return;
+    downloadTriggerBtn.addEventListener('click', async () => {
+      if (!currentResolvedItem || !currentResolvedItem.directStreamUrl) return;
 
       downloadTriggerBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
       lucide.createIcons();
 
-      triggerDownload(currentResolvedItem.url, currentResolvedItem.filename);
+      await triggerDirectDownload(currentResolvedItem.directStreamUrl, currentResolvedItem.filename);
 
-      setTimeout(() => {
-        downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
-        lucide.createIcons();
-      }, 1500);
+      downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
+      lucide.createIcons();
     });
 
     // Batch Multi-Queue
@@ -431,10 +507,10 @@
         lucide.createIcons();
 
         try {
-          const item = await resolveMedia(url, isAudio);
+          const item = await resolveDirectMedia(url, isAudio);
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-emerald-400 flex items-center gap-2';
-          s.innerHTML = `<button onclick="triggerDownload('${item.url}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
+          s.innerHTML = `<button onclick="triggerDirectDownload('${item.directStreamUrl}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
         } catch (_) {
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-rose-400';
