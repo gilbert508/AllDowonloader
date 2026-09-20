@@ -8,7 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <script>
@@ -52,7 +52,7 @@
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Direct Stream Pipeline</span>
+          <span>Native Pipeline Ready</span>
         </div>
       </div>
     </div>
@@ -76,9 +76,9 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 id="platform-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Direct Stream</span>
+          YouTube Engine <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-slate-400 border border-white/[0.08]">Zero Redirects</span>
         </h1>
-        <p class="text-sm text-slate-400 mt-1">Direct stream decoding without ad redirects</p>
+        <p class="text-sm text-slate-400 mt-1">Direct stream decoding straight to device storage</p>
       </div>
       <div class="glass-panel p-1 rounded-xl flex items-center">
         <button id="mode-single-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-white/10 text-white">Single</button>
@@ -92,7 +92,7 @@
         <div class="flex flex-col md:flex-row gap-3">
           <div class="relative flex-1">
             <i data-lucide="link-2" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input id="single-url-input" type="text" placeholder="Paste YouTube Shorts, Watch, Reel, or Post link..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
+            <input id="single-url-input" type="text" placeholder="Paste link (YouTube Shorts, Watch, Reel, Post)..." class="w-full bg-surface-850/80 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60">
           </div>
           <button id="inspect-btn" class="px-7 py-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95">
             <i data-lucide="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
@@ -257,7 +257,23 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Pure Direct Stream Extractor (Zero Redirects)
+    // CORS Bypass Bridge Helper
+    async function fetchWithCorsBypass(url) {
+      const endpoints = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+        `https://proxy.cors.sh/${url}`
+      ];
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep, { signal: AbortSignal.timeout(4000) });
+          if (res.ok) return await res.json();
+        } catch (_) {}
+      }
+      throw new Error('All CORS bridges failed');
+    }
+
+    // Direct Stream Extraction Engine
     async function resolveDirectMedia(rawUrl, isAudio) {
       const cleanUrl = rawUrl.trim();
       const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
@@ -278,80 +294,63 @@
 
         const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80)}.${isAudio ? 'mp3' : 'mp4'}`;
 
-        // Direct Piped API Cluster (CORS-enabled public instances)
-        const PIPED_SERVERS = [
+        // Strategy 1: Piped Streams via CORS Bridge
+        const pipedHosts = [
           'https://pipedapi.kavin.rocks',
           'https://api.piped.privacydev.net',
-          'https://pipedapi.drgns.space',
-          'https://pipedapi.leptons.xyz'
+          'https://pipedapi.drgns.space'
         ];
 
-        for (const host of PIPED_SERVERS) {
+        for (const host of pipedHosts) {
           try {
-            const res = await fetch(`${host}/streams/${ytId}`, { signal: AbortSignal.timeout(4500) });
-            if (!res.ok) continue;
-
-            const d = await res.json();
-            title = d.title || title;
-
+            const data = await fetchWithCorsBypass(`${host}/streams/${ytId}`);
             if (isAudio) {
-              const audios = (d.audioStreams || []).sort((a,b) => (b.bitrate || 0) - (a.bitrate || 0));
-              if (audios.length > 0) {
+              const audios = (data.audioStreams || []).sort((a,b) => (b.bitrate || 0) - (a.bitrate || 0));
+              if (audios.length > 0 && audios[0].url) {
                 return { title, thumb, directStreamUrl: audios[0].url, filename: safeFilename };
               }
             } else {
-              const videos = (d.videoStreams || [])
-                .filter(s => s.format === 'MPEG_4' || s.mimeType?.includes('mp4'))
-                .sort((a,b) => (b.height || 0) - (a.height || 0));
-
-              if (videos.length > 0) {
+              const videos = (data.videoStreams || []).filter(s => s.format === 'MPEG_4' || s.mimeType?.includes('mp4')).sort((a,b) => (b.height || 0) - (a.height || 0));
+              if (videos.length > 0 && videos[0].url) {
                 return { title, thumb, directStreamUrl: videos[0].url, filename: safeFilename };
               }
             }
-          } catch (_) {
-            continue;
-          }
+          } catch (_) {}
         }
 
-        // Secondary Direct Cluster: Invidious Instances
-        const INVIDIOUS_SERVERS = [
+        // Strategy 2: Direct Invidious Streams via CORS Bridge
+        const invidiousHosts = [
           'https://inv.nadeko.net',
           'https://invidious.private.coffee',
           'https://invidious.nerdvpn.de'
         ];
 
-        for (const host of INVIDIOUS_SERVERS) {
+        for (const host of invidiousHosts) {
           try {
-            const res = await fetch(`${host}/api/v1/videos/${ytId}`, { signal: AbortSignal.timeout(4000) });
-            if (!res.ok) continue;
-
-            const d = await res.json();
-            title = d.title || title;
-
+            const data = await fetchWithCorsBypass(`${host}/api/v1/videos/${ytId}`);
             if (isAudio) {
-              const auds = (d.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
-              if (auds.length > 0) {
+              const auds = (data.adaptiveFormats || []).filter(f => f.type?.includes('audio') || f.container === 'm4a').sort((a,b) => (parseInt(b.bitrate)||0) - (parseInt(a.bitrate)||0));
+              if (auds.length > 0 && auds[0].url) {
                 return { title, thumb, directStreamUrl: auds[0].url, filename: safeFilename };
               }
             } else {
-              const vids = (d.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
-              if (vids.length > 0) {
+              const vids = (data.formatStreams || []).filter(f => f.container === 'mp4' || f.type?.includes('mp4')).sort((a,b) => (parseInt(b.resolution)||0) - (parseInt(a.resolution)||0));
+              if (vids.length > 0 && vids[0].url) {
                 return { title, thumb, directStreamUrl: vids[0].url, filename: safeFilename };
               }
             }
-          } catch (_) {
-            continue;
-          }
+          } catch (_) {}
         }
       }
 
-      // Instagram & Facebook direct decoder
-      const COBALT_SERVERS = [
+      // Strategy 3: Cobalt Open Endpoints (for Instagram, Facebook & YouTube)
+      const cobaltInstances = [
         "https://cobalt-api.kwiatekmiki.com",
-        "https://cobalt.hyper.lol"
+        "https://cobalt.hyper.lol",
+        "https://api.wuk.sh"
       ];
 
-      for (const host of COBALT_SERVERS) {
+      for (const host of cobaltInstances) {
         try {
           const res = await fetch(host, {
             method: 'POST',
@@ -359,9 +358,10 @@
             body: JSON.stringify({
               url: cleanUrl,
               downloadMode: isAudio ? "audio" : "auto",
-              videoQuality: "1080"
+              videoQuality: "1080",
+              audioFormat: "mp3"
             }),
-            signal: AbortSignal.timeout(4500)
+            signal: AbortSignal.timeout(4000)
           });
           if (res.ok) {
             const d = await res.json();
@@ -371,19 +371,17 @@
                 title: "Media Stream",
                 thumb: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
                 directStreamUrl: sUrl,
-                filename: `media_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
+                filename: `download_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
               };
             }
           }
-        } catch (_) {
-          continue;
-        }
+        } catch (_) {}
       }
 
-      throw new Error("Unable to extract direct stream. Please ensure the video is public.");
+      throw new Error("Unable to extract direct stream. Please try again in a few moments.");
     }
 
-    // Direct Browser Download (Saves straight to device filesystem, zero redirects)
+    // Direct Browser Download (Zero External Redirects)
     async function triggerDirectDownload(streamUrl, filename) {
       const pBox = document.getElementById('progress-box');
       const pBar = document.getElementById('progress-bar');
@@ -394,7 +392,6 @@
       pStatus.textContent = 'Connecting to media stream...';
 
       try {
-        // Stream raw bytes directly into a Blob
         const response = await fetch(streamUrl);
         if (!response.ok) throw new Error();
 
@@ -419,7 +416,7 @@
           pBox.classList.add('hidden');
         }, 2000);
       } catch (_) {
-        // Cross-origin fallback for devices that block fetch streaming
+        // Direct browser anchor fallback for cross-origin streams
         pBar.style.width = '100%';
         pStatus.textContent = 'Starting browser download...';
         
@@ -436,7 +433,7 @@
       }
     }
 
-    // Inspect Single Link
+    // Single Link Inspect
     const inspectBtn = document.getElementById('inspect-btn');
     inspectBtn.addEventListener('click', async () => {
       const url = document.getElementById('single-url-input').value.trim();
