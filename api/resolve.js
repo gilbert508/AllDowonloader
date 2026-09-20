@@ -93,14 +93,17 @@ async function resolveCobalt(url, isAudio) {
     throw new Error(data.error?.code || `Provider returned HTTP ${response.status}`);
   }
 
-  const item = data.url ? data : data.picker?.find((entry) => entry.type === 'video') || data.picker?.[0];
-  if (!item?.url) throw new Error('The provider returned no downloadable media.');
+  const item = data.url
+    ? data
+    : data.picker?.find((entry) => entry.type === 'video') || data.picker?.[0];
+  const streamUrl = item?.url || data.tunnel?.[0];
+  if (!streamUrl) throw new Error(data.text || 'The provider returned no downloadable media.');
 
   return {
-    title: data.filename || 'Social media download',
-    thumb: item.thumb || '',
-    directStreamUrl: item.url,
-    filename: data.filename || `download_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
+    title: data.filename || data.output?.metadata?.title || 'Social media download',
+    thumb: item?.thumb || '',
+    directStreamUrl: streamUrl,
+    filename: data.filename || data.output?.filename || `download_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
   };
 }
 
