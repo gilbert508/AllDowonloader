@@ -245,7 +245,27 @@
         }
       } catch (_) {}
 
-      // Official Android API query directly from client browser (uses home/mobile IP)
+      const apiResponse = await fetch('/api/yt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: cleanUrl, audio: false })
+      });
+      const apiData = await apiResponse.json().catch(() => ({}));
+      if (apiResponse.ok) {
+        return {
+          title: apiData.title || title,
+          thumb: apiData.thumb || thumb,
+          videoUrl: apiData.videoUrl,
+          audioUrl: apiData.audioUrl,
+          isCombined: Boolean(apiData.isCombined),
+          filename: apiData.filename
+        };
+      }
+
+      throw new Error(apiData.error || 'The server-side YouTube extractor failed.');
+
+      /*
+      // Direct browser extraction is retained below only as historical reference.
       let res;
       try {
         res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
@@ -302,6 +322,7 @@
         audioUrl: audioTrack?.url || null,
         isCombined: !audioTrack || !!progressiveTrack
       };
+      */
     }
 
     // Inspect Single Link

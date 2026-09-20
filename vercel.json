@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "functions": {
+    "api/*.js": { "maxDuration": 30 },
+    "api/*.py": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/(.*)",
