@@ -35,8 +35,8 @@ async function resolveYouTube(url, id, isAudio) {
       });
       const data = await response.json();
       const playability = data.playabilityStatus;
-      if (!response.ok || playability?.status === 'ERROR') {
-        lastReason = playability?.reason || lastReason;
+      if (!response.ok) {
+        lastReason = playability?.reason || `YouTube returned HTTP ${response.status}`;
         continue;
       }
 
@@ -61,6 +61,8 @@ async function resolveYouTube(url, id, isAudio) {
           filename: safeFilename(title, extension)
         };
       }
+
+      lastReason = playability?.reason || playability?.status || lastReason;
     } catch (error) {
       lastReason = error.message || lastReason;
     }
