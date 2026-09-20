@@ -257,144 +257,17 @@
       formatVideoBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-medium text-slate-400 flex items-center gap-1.5';
     });
 
-    // Native Manifest Extractor (Queries official YouTube stream decoders directly from the browser)
+    // Resolve media on the server so YouTube's internal API and expiring URLs
+    // are never exposed to browser CORS and redirect rules.
     async function resolveDirectMedia(rawUrl, isAudio) {
-      const cleanUrl = rawUrl.trim();
-      const ytMatch = cleanUrl.match(/(?:shorts\/|v=|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
-      const ytId = ytMatch ? ytMatch[1] : null;
-
-      let title = "Media Stream";
-      let thumb = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800";
-
-      if (ytId) {
-        thumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
-        try {
-          const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
-          if (oe.ok) {
-            const data = await oe.json();
-            title = data.title || title;
-          }
-        } catch (_) {}
-
-        const safeFilename = `${title.replace(/[\\/*?:"<>|]/g, '').trim().slice(0, 80)}.${isAudio ? 'mp3' : 'mp4'}`;
-
-        // Direct YouTube Android Client Manifest (No proxies, no blocks, direct googlevideo stream)
-        try {
-          const ytPlayerPayload = {
-            videoId: ytId,
-            context: {
-              client: {
-                clientName: "ANDROID_TESTSUITE",
-                clientVersion: "1.9",
-                androidSdkVersion: 30,
-                hl: "en",
-                gl: "US"
-              }
-            }
-          };
-
-          const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(ytPlayerPayload)
-          });
-
-          if (playerRes.ok) {
-            const pData = await playerRes.json();
-            const streamingData = pData.streamingData || {};
-            const formats = streamingData.formats || [];
-            const adaptiveFormats = streamingData.adaptiveFormats || [];
-
-            if (isAudio) {
-              const audios = adaptiveFormats
-                .filter(f => f.mimeType?.includes("audio"))
-                .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-
-              if (audios.length > 0 && audios[0].url) {
-                return { title, thumb, directStreamUrl: audios[0].url, filename: safeFilename };
-              }
-            } else {
-              // Direct progressive MP4 with video + audio combined (plays natively on iOS & Android)
-              const mp4s = formats
-                .filter(f => f.mimeType?.includes("mp4") || f.container === "mp4")
-                .sort((a, b) => (b.height || 0) - (a.height || 0));
-
-              if (mp4s.length > 0 && mp4s[0].url) {
-                return { title, thumb, directStreamUrl: mp4s[0].url, filename: safeFilename };
-              }
-            }
-          }
-        } catch (_) {}
-
-        // Secondary Direct Android Manifest Fallback
-        try {
-          const ytTvPayload = {
-            videoId: ytId,
-            context: {
-              client: {
-                clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
-                clientVersion: "2.0",
-                hl: "en",
-                gl: "US"
-              }
-            }
-          };
-
-          const tvRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(ytTvPayload)
-          });
-
-          if (tvRes.ok) {
-            const tData = await tvRes.json();
-            const formats = (tData.streamingData?.formats || []);
-            const valid = formats.filter(f => f.url && (f.mimeType?.includes("mp4") || f.container === "mp4"));
-            if (valid.length > 0) {
-              return { title, thumb, directStreamUrl: valid[0].url, filename: safeFilename };
-            }
-          }
-        } catch (_) {}
-      }
-
-      // Instagram & Facebook direct decoder
-      const cobaltPayload = {
-        url: cleanUrl,
-        downloadMode: isAudio ? "audio" : "auto",
-        videoQuality: "1080"
-      };
-
-      const nodes = [
-        "https://cobalt-api.kwiatekmiki.com",
-        "https://cobalt.hyper.lol"
-      ];
-
-      for (const node of nodes) {
-        try {
-          const cRes = await fetch(node, {
-            method: "POST",
-            headers: { "Accept": "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify(cobaltPayload),
-            signal: AbortSignal.timeout(4000)
-          });
-          if (cRes.ok) {
-            const cd = await cRes.json();
-            const sUrl = cd.url || (cd.picker && cd.picker[0]?.url);
-            if (sUrl) {
-              return {
-                title: "Media Stream",
-                thumb: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
-                directStreamUrl: sUrl,
-                filename: `download_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`
-              };
-            }
-          }
-        } catch (_) {}
-      }
-
-      throw new Error("Unable to extract direct stream. Please ensure the video is public.");
+      const response = await fetch('/api/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: rawUrl.trim(), audio: isAudio })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Media extraction failed.');
+      return data;
     }
 
     // Direct Browser Download (Saves straight to local device storage, zero redirects)
@@ -431,21 +304,9 @@
           window.URL.revokeObjectURL(localBlobUrl);
           pBox.classList.add('hidden');
         }, 1500);
-      } catch (_) {
-        // Fallback for strict browser sandboxes (triggers native OS download manager)
-        pBar.style.width = '100%';
-        pStatus.textContent = 'Starting file download...';
-        
-        const directAnchor = document.createElement('a');
-        directAnchor.href = streamUrl;
-        directAnchor.setAttribute('download', filename);
-        directAnchor.target = '_self';
-        document.body.appendChild(directAnchor);
-        directAnchor.click();
-        setTimeout(() => {
-          directAnchor.remove();
-          pBox.classList.add('hidden');
-        }, 1500);
+      } catch (error) {
+        pBar.style.width = '0%';
+        pStatus.textContent = error.message || 'Download failed. Analyze the link again.';
       }
     }
 
@@ -477,12 +338,12 @@
     // Single Download Trigger
     const downloadTriggerBtn = document.getElementById('download-trigger-btn');
     downloadTriggerBtn.addEventListener('click', async () => {
-      if (!currentResolvedItem || !currentResolvedItem.directStreamUrl) return;
+      if (!currentResolvedItem || !currentResolvedItem.downloadUrl) return;
 
       downloadTriggerBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Downloading...</span>';
       lucide.createIcons();
 
-      await triggerDirectDownload(currentResolvedItem.directStreamUrl, currentResolvedItem.filename);
+      await triggerDirectDownload(currentResolvedItem.downloadUrl, currentResolvedItem.filename);
 
       downloadTriggerBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i><span>Download Now</span>';
       lucide.createIcons();
@@ -523,7 +384,7 @@
           const item = await resolveDirectMedia(url, isAudio);
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-emerald-400 flex items-center gap-2';
-          s.innerHTML = `<button onclick="triggerDirectDownload('${item.directStreamUrl}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
+          s.innerHTML = `<button onclick="triggerDirectDownload('${item.downloadUrl}', '${item.filename}')" class="font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">Download</button>`;
         } catch (_) {
           const s = document.getElementById(`batch-status-${i}`);
           s.className = 'text-rose-400';
