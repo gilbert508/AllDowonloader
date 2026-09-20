@@ -114,9 +114,19 @@ module.exports = async (req, res) => {
     }
 
     const id = youtubeId(url);
-    const result = id
-      ? await resolveYouTube(url, id, Boolean(audio))
-      : await resolveCobalt(url, Boolean(audio));
+    let result;
+    if (id) {
+      try {
+        result = await resolveYouTube(url, id, Boolean(audio));
+      } catch (error) {
+        if (!process.env.COBALT_API_URL) {
+          throw new Error(`${error.message}. YouTube is blocking this server; configure COBALT_API_URL for provider failover.`);
+        }
+        result = await resolveCobalt(url, Boolean(audio));
+      }
+    } else {
+      result = await resolveCobalt(url, Boolean(audio));
+    }
 
     result.downloadUrl = `/api/download?url=${encodeURIComponent(result.directStreamUrl)}&filename=${encodeURIComponent(result.filename)}`;
     delete result.directStreamUrl;
